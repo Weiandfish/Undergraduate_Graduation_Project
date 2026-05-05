@@ -1,4 +1,8 @@
-# 本地解压的 LeRobot 扩展参考树（体积大；若需纳入版本库可删下列两行）
+# 本地参考/阅读用目录（等价于不参与上传的子模块占位；体积大）
+# 若需纳入 Git 版本库，删除对应一行；若曾被 git 追踪，需在仓库根目录执行：
+# git rm -r --cached pick_apple_4_18 openpi0.5 LeFranX-main
+/pick_apple_4_18/
+/openpi0.5/
 /LeFranX-main/
 LeFranX-main.zip
 

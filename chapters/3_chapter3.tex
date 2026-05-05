@@ -1,0 +1,98 @@
+%%
+% 第三章：桌面抓取示教数据采集与 LeRobot 数据集规范
+%%
+
+\chapter{桌面抓取示教数据采集与 LeRobot 数据集规范}
+\label{chap:data-collection}
+
+第二章从工程实现角度完成了 Franka 与 LeRobot 的接口打通，并给出了三维鼠标与同构主从两类遥操作方案及其标定流程。本章在此基础上，以实际落地的一条示教采集流水线为对象，说明\textbf{采集任务设定}、\textbf{落盘数据如何组织为 LeRobot 官方数据集形态}（codebase\_version \texttt{v2.1}），以及\textbf{为何该字段编排与多相机布局适合本文的桌面抓取与后续 $\pi_{0.5}$ 类策略训练}。文中以仓库内数据集目录 \path{pick_apple_4_18/} 为实例——该数据集即毕业设计录制并用于 $\pi_{0.5}$ 微调实验的抓取示教数据。
+
+\section{采集任务与录制流程概要}
+\label{sec:task-record}
+
+\textbf{语言指令层面的任务语义}单独登记在 \path{pick_apple_4_18/meta/tasks.jsonl} 中：任务索引 \texttt{task\_index=0} 对应自然语言描述
+\begin{quote}
+  \ttfamily Pick up the green apple and place it in the upper left corner of the table.
+\end{quote}
+每条 Episode 在 \path{meta/episodes.jsonl} 中记录所属任务索引、自然语言列表及本条轨迹的时间步长度；全库共\texttt{30}条 Episode，可与第二章所述 \texttt{lerobot-record} 流程一一对应（先完成机器人与相机就绪，再在同一任务语义下重复示教，最后由 LeRobot 按统一 schema 写盘）。
+
+\textbf{环境与控制侧要点}沿用第二章的分层架构：低频训练侧仍以 LeRobot \texttt{Robot}/\texttt{Teleoperator} 抽象消费观测与生成动作指令，高频实时控制由 RT PC 上的 \path{franka_server} 执行。录制时帧率与时间戳对齐在元信息层面体现为\textbf{统一的标称帧率 $10~\mathrm{Hz}$}（下文 \path{meta/info.json} 中 \texttt{fps} 字段），对桌面抓取这类以准静态接触与柔顺放置为主的操作而言，相较于单纯追求高频采样，更看重\textbf{示教动作的连贯性、观测与动作的锁相以及多相机覆盖}；本文选择 $10~\mathrm{Hz}$ 作为视频编码、parquet 行频与伺服周期的共同基准，在保证任务相关运动信息不丢失的前提下，降低存储与解码开销，并与 LeRobot 训练数据加载器的常见假设兼容。
+
+\section{LeRobot \texttt{v2.1} 目录结构与元数据}
+\label{sec:lerobot-layout}
+
+数据集 \path{pick_apple_4_18} 的顶层结构遵循 LeRobot 2.x 数据集规范，可被 \texttt{lerobot.datasets} 直接按 Repo ID 或本地路径打开。其核心组成可概括为四类路径（以下均相对于数据集根目录）：
+\begin{enumerate}
+  \item \textbf{\path{meta/}}——机器可读的全局说明与 Episode 列表：\path{info.json} 汇总机器人类型、总 Episode 数、总帧数、视频与表格路径模板及各字段特征（名称、dtype、shape）；\path{tasks.jsonl}、\path{episodes.jsonl}、\path{episodes\_stats.jsonl} 分别描述任务条目、每条轨迹的语义标签与长度、以及轨迹级简易统计。
+  \item \textbf{\path{data/}}——按 chunk 存放的\textbf{帧级表格}（本数据集仅占一个 chunk）：\path{data/chunk-000/episode_XXXXXX.parquet}，每文件对应一整条 Episode 的时间序列样本。
+  \item \textbf{\path{videos/}}——与表格行对齐编码的\textbf{外挂视频轨道}：\path{videos/chunk-000/<video\_key>/episode_XXXXXX.mp4}。\path{info.json} 中的 \texttt{video\_path} 模板指明 \texttt{video\_key} 由特征键推导（例如下文两个 RGB 相机的键名即对应两级子目录）。
+  \item（可选的其他辅助文件可按 LeRobot Hub 惯例存在；本文数据集以\textbf{精简可训练闭环}为原则，不包含与训练无关的中间产物。）
+\end{enumerate}
+
+\path{meta/info.json} 中与本实验直接相关的全局量如下：
+\begin{itemize}
+  \item \textbf{机器人标识}：\texttt{robot\_type} 声明为 FrankaFER 末端带二指夹爪的组合体（\texttt{franka\_fer\_gripper}），与同路径下的观测/动作八维向量一致；
+  \item \textbf{规模概览}：\texttt{total\_episodes=30}，\texttt{total\_frames=5512}，\texttt{total\_videos=60}（每条 Episode、每个相机各一条视频）；\texttt{splits.train} 为 \texttt{0:30}，即当前全部数据用于训练集划分；
+  \item \textbf{路径模板}：\texttt{data\_path} 与 \texttt{video\_path} 使用 LeRobot 统一的格式化占位符，将逻辑 Episode 索引映射到具体文件名，便于分块扩展与大规模数据管理。
+\end{itemize}
+
+该布局的价值在于：\textbf{表格存低维时序量、视频存高维图像流}，二者通过同一套 \texttt{frame\_index} / \texttt{episode\_index} / 时间戳字段建立一一对应关系；训练代码只需按 LeRobot 的 \texttt{features} 声明进行张量拼接，无需为 Franka 定制私有 DataLoader。
+
+\section{帧级特征模式与模仿学习接口}
+\label{sec:feature-schema}
+
+表~\ref{tab:pick-apple-features}归纳了 \path{info.json} 中声明的主要特征键。可以看到，\textbf{动作空间}与\textbf{关节观测}在维数与命名上呈对齐关系：均为八维浮点向量，前七维对应 Franka 七轴关节位置，第八维为夹爪开合通道（与第二章 \texttt{FrankaFERGripper} 约定一致）。这种“状态—动作同构”的写法是行为克隆与扩散策略类方法的常见输入形式：网络在时刻 $t$ 读取多相机图像与本体状态，预测监督目标为同刻示教者给出的关节—夹爪指令或下一时刻目标。
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{数据集 \texttt{pick\_apple\_4\_18} 的主要帧级特征（摘自 \texttt{meta/info.json}）}
+  \label{tab:pick-apple-features}
+  \begin{tabular}{>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{4.3cm}}
+    \toprule
+    特征键 & dtype & 形状概要 & 含义（本文设置下） \\
+    \midrule
+    \texttt{action} & \texttt{float32} & $8$ & 示教关节目标 + 夹爪指令，用于监督学习 \\
+    \texttt{observation.state} & \texttt{float32} & $8$ & 关节位置与夹爪反馈，构造策略条件 \\
+    \texttt{observation.velocity} & \texttt{float32} & $7$ & 七轴关节角速度，可选辅助信号 \\
+    \texttt{observation.eepose} & \texttt{float32} & $7$ & 末端位姿 $(x,y,z,q_x,q_y,q_z,q_w)$ \\
+    \shortstack[l]{\texttt{observation.images.}\\\texttt{wrist}} & 视频 & $720{\times}1280{\times}3$ & 腕部/手眼附近 RGB，AV1，$10~\mathrm{fps}$ \\
+    \shortstack[l]{\texttt{observation.images.}\\\texttt{third\_person}} & 视频 & $720{\times}1280{\times}3$ & 第三人称场景 RGB，AV1，$10~\mathrm{fps}$ \\
+    \texttt{timestamp} 等索引字段 & 标量 & $1$ & 帧内时间戳、Episode/任务编号、全局行号 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{多相机观测}分别以 \texttt{observation.images.wrist} 与 \texttt{observation.images.third\_person} 两个键挂载。二者在物理视角上\textbf{互补}：第三人称摄像机提供桌面上苹果目标物、障碍物与边角放置区域的全景关系，适于粗定位与语义对齐；腕部摄像机则提供抓取对准期所需的局部几何与开合过程中的手指—物体相对关系，对降低\textbf{从侧面观看时的深度歧义}至关重要。分辨率 $1280{\times}720$、采样率与关节序列一致且视频参数在 \texttt{features}.\texttt{info} 块中逐项声明（像素格式 \texttt{yuv420p}、是否具有深度、是否含音频等），保证了跨机器解码的可重复性。
+
+\textbf{低维本体量}除关节状态外，另含七维关节速度与七维末端位姿。前者可用于未来引入速度惩罚或对比学习；后者便于在调试阶段与笛卡尔空间示教设备（如第二章 SpaceMouse 路径）进行交叉验证。对于以关节空间监督为主的 $\pi_{0.5}$ 管线，\textbf{核心训练张量}仍自然落在 \texttt{observation.images.*} 与 \texttt{action}（及必要的 \texttt{observation.state}）之上，其余字段以“可扩展但不扰动训练接口”的方式存在。
+
+\section{数据规模、质量与后续训练衔接}
+\label{sec:scale-quality}
+
+在规模上，\texttt{30} 条 Episode、合计 \texttt{5512} 帧属于\textbf{小规模专用数据集}，适用于在基础视觉—语言—动作（VLA）模型上进行任务特化微调或概念验证，而不追求覆盖所有桌面扰动。单条 Episode 长度在约一百七至一百九十余步之间波动，对应十几秒量级的操作过程，与“抓取—移动—放置”三阶段结构相符。
+
+从数据质量角度，本文在采集端强调三点，并由此体现为落盘格式上的优势：\textbf{（1）字段完备性}——关键键名符合 LeRobot 约定，减少训练脚本中的硬编码映射；\textbf{（2）时间一致性}——统一 $10~\mathrm{Hz}$ 与外挂视频，使视觉与关节标签天然对齐；\textbf{（3）任务语义显式化}——自然语言任务写入 \path{tasks.jsonl} 并在 Episode 元数据中重复索引，便于多任务扩展或与语言条件策略对接。在此前提下，即使样本量有限，网络仍主要学习\textbf{桌面绿色苹果抓取并置于桌面左上区域}这一窄分布，与后续章节对 $\pi_{0.5}$ 结构的针对性修改及桌面实验评价形成闭环。
+
+\section{基于 Rerun 的可视化核验}
+\label{sec:rerun-viz}
+
+录制完成后，使用 Rerun 等时序可视化工具对 \path{pick_apple_4_18} 进行抽检，可并行查看多路图像与低维曲线，快速发现丢帧、相机未触发、动作饱和等异常。图~\ref{fig:rerun-pick-apple} 展示了典型一帧附近的多模态观测：腕部与第三人称两路 RGB、七关节位置与七维末端位姿随时间的变化曲线。可见关节与末端量随操作阶段连续变化，无阶跃式异常；图像内容与桌面抓取场景一致。该步骤并不改变数据集文件结构，但为\textbf{“格式正确 $\neq$ 语义正确”}提供了直观审查手段，与 \path{episodes\_stats.jsonl} 中的数值范围统计互为补充。
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.48\textwidth]{images/wrist_camera.png}\hfill
+  \includegraphics[width=0.48\textwidth]{images/third_person_camera.png}
+
+  \vspace{0.6em}
+  \includegraphics[width=0.48\textwidth]{images/joint_state_observation.png}\hfill
+  \includegraphics[width=0.48\textwidth]{images/eepose_observation.png}
+
+  \caption{抓取示教数据集 \texttt{pick\_apple\_4\_18} 在 Rerun 中的多模态观测示例。上方为腕部相机与第三人称相机画面；下方为七关节位置与末端位姿（位置与四元数分量）随时间的曲线。}
+  \label{fig:rerun-pick-apple}
+\end{figure}
+
+\section{本章小结}
+\label{sec:ch3-summary}
+
+本章以 \path{pick_apple_4_18} 为实例，说明了本文桌面抓取示教数据在 LeRobot \texttt{v2.1} 规范下的目录组织、元数据文件、帧级特征键及双相机视频布局，并交代了数据规模与面向 $\pi_{0.5}$ 微调的使用方式。该数据集在字段层面与官方生态对齐，在内容层面覆盖“第三人称场景理解 + 腕部精细对准 + 关节/夹爪动作监督”，为后续策略训练与实机实验提供了可直接加载的标准化输入。

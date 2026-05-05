@@ -1,0 +1,173 @@
+%%
+% 第二章：机械臂系统集成、LeRobot 接口扩展与遥操作数据采集
+%%
+
+\chapter{Franka 机械臂系统集成与 LeRobot 接口扩展}
+\label{chap:integration}
+
+本章围绕毕业设计的主体工程工作展开，对 Franka 机械臂在实时控制侧的稳定运行、与 Hugging Face LeRobot 框架的对接方式，以及面向模仿学习数据采集所设计并开源的三维鼠标与同构主从臂两类遥操作方案进行系统论述。上述环节在逻辑上构成“底层执行—框架抽象—人机接口—数据闭环”的完整链条，为后续基于 $\pi_{0.5}$ 等策略模型的训练与桌面抓取实验提供硬件与数据基础。与同形态主从臂相比，单纯“关节到关节”的硬件搭建已被较多工作覆盖；本章在工程上的\textbf{核心创新之一}在于：在 LeRobot 统一抽象之下，将主从映射参数化为可文件化配置，并提供\textbf{交互式两阶段配对标定脚本}，用一次对齐姿态与一次夹爪开合行程，自动解算七轴偏置与夹爪量程，从而在装配误差、轴向反向与零点漂移存在时仍能稳定复现从臂指令，显著提升示教数据的可重复性与开源可复现程度。
+
+\section{系统总体架构}
+\label{sec:arch}
+
+从系统分层角度，可将本文实现的机器人数据采集平台划分为四层。
+\begin{enumerate}
+  \item \textbf{实时执行层}：部署在机器人实时控制机（RT PC）上的 \path{franka_server}，基于官方 \texttt{libfranka} 与轨迹平滑库 Ruckig，完成与真实 Franka 控制器的低层通信、关节空间运动生成与安全约束相关处理。
+  \item \textbf{网络服务层}：实时侧与控制计算侧通过 TCP 套接字交互，上层以文本行协议发送关节目标等指令并接收机器人状态反馈，从而将实时与非实时进程解耦。
+  \item \textbf{LeRobot 抽象层}：在 LeRobot 的 \texttt{Robot} / \texttt{RobotConfig} 约定下实现 \texttt{FrankaFER}（及带夹爪的复合机器人配置），统一观测（多相机 RGB/深度、关节状态、末端位姿等）与动作（关节目标等）的张量字典接口，使其可被 \texttt{lerobot-record}、重放与训练管线直接消费。
+  \item \textbf{遥操作与数据层}：在 \texttt{Teleoperator} 扩展上实现三维 SpaceMouse 笛卡尔增量映射与同构主从臂关节映射两类接口，并在 LeRobot 数据集规范下完成时间对齐与字段命名，支撑高质量示教采集。
+\end{enumerate}
+
+表~\ref{tab:module-map}汇总了主要软件模块与职责；表中\textbf{以 LeRobot 配置类型码}标识实现入口，避免冗长 Python 类名挤占版心。
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{平台主要模块与功能对照（配置类型与中文对照）}
+  \label{tab:module-map}
+  \begin{tabular}{>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{6.0cm}>{\raggedright\arraybackslash}p{3.6cm}}
+    \toprule
+    模块（中文） & 主要职责 & 配置 \texttt{type} / 可执行体 \\
+    \midrule
+    实时控制服务 & 实时控制、轨迹平滑、状态回传 & \texttt{./franka\_server [IP]} \\
+    Franka 从臂客户端 & Socket 通信、观测/动作特征、连接管理 & \texttt{franka\_fer} \\
+    臂+夹爪从机 & 臂关节与夹爪指令/观测一体化 & \texttt{franka\_fer\_gripper} \\
+    SpaceMouse 臂遥操作 & 鼠标增量—累积位姿—IK—关节目标 & \texttt{franka\_fer\_spacemouse} \\
+    SpaceMouse 臂+爪 & 共用鼠标读数器，臂与爪动作对齐复合从机 & \texttt{franka\_fer\_gripper\_spacemouse} \\
+    同构主从（臂） & 主臂读数缩放、偏置后映射为从臂关节目标 & \texttt{franka\_fer\_subarm} \\
+    同构主从（臂+爪） & 关节映射 + 主臂夹爪原始量归一化 & \texttt{franka\_fer\_gripper\_subarm} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\noindent\textbf{说明：}表中带 SpaceMouse 的遥操作对应实现模块分别位于\\\path{src/lerobot/teleoperators/franka_fer_spacemouse/}与\\\path{src/lerobot/teleoperators/franka_fer_gripper_spacemouse/}；同构主从映射的核心类为 \texttt{FrankaFER\-Subarm\-Teleoperator} 与 \texttt{FrankaFER\-Gripper\-Subarm\-Teleoperator}。下文在叙述中优先使用配置类型码指代，必要时再标明类名。
+
+\section{Franka 实时控制与底层通信}
+\label{sec:franka-server}
+
+\subsection{控制环路与实时性}
+
+Franka 机械臂的官方控制接口对实时性有严格要求。本文将低层控制集中于 RT PC 上的 C++ 服务进程，避免在非实时操作系统上与 Python 解释器抢占同一调度上下文，从而降低控制超时风险。服务进程基于 \texttt{libfranka} 读取机器人状态并下发轨迹或目标；同时引入 Ruckig 对指令进行时间参数化和平滑处理，抑制示教或上层指令中的突变，提高执行过程的可重复性与安全性。
+
+\subsection{套接字协议与上下位机分工}
+
+上层 LeRobot 进程不直接调用 \texttt{libfranka}，而是通过 TCP 套接字与 \path{franka_server} 通信：连接建立后，以换行分隔的文本命令进行请求—应答式交互。该设计的优点在于：
+\begin{itemize}
+  \item 上位机可使用与实验室计算环境一致的 Python 版本与依赖栈，便于与 LeRobot、PyTorch 等工具链共存；
+  \item 实时机仅需维护体量可控的服务端构建产物与少量系统依赖，部署边界清晰；
+  \item 便于在局域网内将相机与推理节点与机械臂分机关联，扩展多机协作时的拓扑。
+\end{itemize}
+
+启动数据采集或控制脚本前，须在 RT PC 上先启动 \path{franka_server} 并传入机器人 IP，确认健康检查通过后再在 LeRobot 侧实例化 \texttt{FrankaFER}，以避免“接口已初始化但执行端未就绪”的连接语义错误。
+
+\section{LeRobot 通用机器人接口扩展}
+\label{sec:lerobot-robot}
+
+\subsection{框架约定与工厂注册}
+
+LeRobot 将物理平台抽象为 \texttt{Robot} 子类，并通过 \texttt{RobotConfig} 的数据类配置（含 \texttt{type} 字段）在工厂函数中派生具体实现。本文在 \texttt{make\_robot\_from\_config} 中注册 \texttt{franka\_fer}、\texttt{franka\_fer\_gripper} 等类型，使标准 CLI 与脚本能够以与其他官方机器人相同的方式构造 Follower，而无需在外部维护“专用启动器”。
+
+\subsection{\texttt{FrankaFER} 类设计要点}
+
+\texttt{FrankaFER} 的核心职责可概括为三方面。
+
+\textbf{（1）连接与生命周期管理。}
+配置项中提供实时服务端 IP 与端口；实例化时建立阻塞或非阻塞套接字，并在断开、异常时清理文件描述符，向上层暴露 \texttt{is\_connected} 等状态查询接口，便于录制脚本在断连时安全退出。
+
+\textbf{（2）观测特征 \texttt{observation\_features}。}
+对齐 LeRobot 数据集模式，显式声明各观测键名及类型：七自由度关节位置与速度、末端执行器位姿（以行优先 $4\times4$ 齐次变换矩阵展平为十六维向量）、以及按相机名称组织的 RGB 张量；若启用 RealSense 等相机的深度流，则同步声明对应深度图键名与形状。该声明在录制时用于分配缓冲区与校验字段完备性。
+
+\textbf{（3）动作特征 \texttt{action\_features} 与下发。}
+本文在标准臂控制模式下将动作空间取为七维关节目标位置，键名与 LeRobot 惯用命名一致，便于与后续策略头维匹配。发送时在语义上执行“将一行命令编码并写入套接字—读取应答”的同步原语，并对超时与异常进行日志记录与重连策略预留。
+
+上述设计使 Franka 平台在 LeRobot 语义下与 Koch、SO-100 等 follower 等价：同一套 \texttt{record}/\texttt{replay} 流程可以迁移使用，仅更换配置 JSON 或 Draccus 参数即可。
+
+\subsection{带末端夹爪的复合机器人}
+
+针对桌面抓取任务，机械臂需配合二指夹爪等末端执行器。本文在 \texttt{FrankaFERGripper} 中将臂部与夹爪作为组合实体建模：观测维度在关节与末端位姿基础上扩展夹爪开合相关量；动作维度在七维关节之外增加归一化到 $[0,1]$ 的夹爪指令通道。由此，单条时间步上的“状态—动作”对与单一末端执行器语义一致，降低多设备拼接时的字段分叉与后处理成本。
+
+\section{三维鼠标遥操作方案}
+\label{sec:spacemouse}
+
+\subsection{硬件与数据获取}
+
+三维鼠标（SpaceMouse 等六自由度输入设备）能够以较高频率输出线性与角增量的组合。本文在 LeRobot 依赖中采用 \texttt{pyspacemouse} 读数，由 \texttt{Space\-Mouse\-State\-Reader} 在独立线程或上下文管理器中循环采样，将 USB HID 事件转为统一的增量序列号与数值结构，供上层遥操作类消费。
+
+\subsection{累积位姿与死区处理}
+
+直接将单次增量映射为关节增量易导致漂移与抖动。本文实现 \texttt{Delta\-Pose\-Adapter}，在笛卡尔空间维护累积位置向量与累积四元数姿态：对每个采样周期，将设备上报的平移增量按可配置标尺缩放，对平移范数与旋转角施加死区，低于阈值的增量置零；合法增量通过四元数乘法累积到当前姿态。序列号发生变化时才更新累积状态，避免同一硬件包被重复积分。
+
+设第 $k$ 次有效采样对应的平移增量为 $\Delta \mathbf{p}_k \in \mathbb{R}^3$，姿态增量为单位四元数 $\Delta \mathbf{q}_k$（采用 $(x,y,z,w)$ 约定），则累积位姿更新可写为
+\begin{equation}
+  \mathbf{p}_{k+1} = \mathbf{p}_k + s \cdot \Delta \mathbf{p}_k ,
+  \qquad
+  \mathbf{q}_{k+1} = \mathrm{normalize}\bigl(\mathbf{q}_k \otimes \Delta \mathbf{q}_k\bigr),
+\end{equation}
+其中 $s$ 为位置缩放系数，$\otimes$ 表示四元数乘法。死区在平移范数与旋转角上已并入 $\Delta \mathbf{p}_k$、$\Delta \mathbf{q}_k$ 的筛选逻辑。
+
+\subsection{逆运动学与 \texttt{Teleoperator} 接口}
+
+在获得期望腕部位姿后，需解算七轴关节目标。本文复用与 VR 遥操作一致的 \texttt{Arm\-IK\-Processor} 路径，在 C++ 桥接与 Python 包装之间传递参考关节与目标位姿，对奇异位形与求解失败做异常捕获与日志输出，避免单次 IK 失败中断整条录制会话。
+
+配置类型 \texttt{franka\_fer\_spacemouse} 对应的遥操作类继承 LeRobot 的 \texttt{Teleoperator}，实现 \texttt{action\_features}、\texttt{connect}/\texttt{disconnect}、\texttt{get\_action} 等契约：每次 \texttt{get\_action} 将当前鼠标增量经适配器积分后送 IK，输出七维关节目标字典，键名与 \texttt{FrankaFER} 的动作键一致，从而实现“人通过鼠标在笛卡尔空间表达意图—机器人在关节空间跟随”的闭环。
+
+\textbf{臂+夹爪组合。}
+配置类型 \texttt{franka\_fer\_gripper\_spacemouse} 在臂部通道上与上述实现共享同一 \texttt{Space\-Mouse\-State\-Reader}，避免对同一 USB 资源双开；夹爪通道由配置映射为开合标量，与臂部动作合并为复合动作字典，便于与 \texttt{franka\_fer\_gripper} 联合录制。
+
+\section{同构主从臂遥操作、配对标定与数据采集}
+\label{sec:subarm}
+
+同构主从方案是本文面向桌面抓取示教的数据采集主路径之一：操作者拖动与 Franka 同结构的主臂（代码中以 \texttt{SoFranka} 抽象底层总线读数），从臂实时跟踪，可在关节空间完成贴近台面、绕行障碍等细调。与仅开源硬件清单不同，本文的\textbf{可复现性}体现在：（1）映射公式与运行时配置字段一一对应；（2）提供\textbf{参数自动解算工具}，把“肉眼对齐主从”转化为可写入 JSON 的数值，避免手工试凑比例与零点。
+
+\subsection{同构构型的工程动机}
+
+相比三维鼠标等笛空间设备，同构主从允许\textbf{示教式关节空间映射}：主从几何相似时，操作者对主臂的关节角直觉可迁移到对从臂运动的预期，对抓取流水线中的姿态调整往往更直接。工程上，主臂与从臂的安装轴向、零点与传动比未必一致，因此必须在软件层引入\textbf{每关节缩放与偏置}，并在夹爪通道引入\textbf{原始量到 $[0,1]$ 的线性标定}；若缺少系统化标定，示教轨迹会在回放时出现整体偏转、夹爪“开不满/关不严”等问题，直接污染模仿学习数据集。
+
+\subsection{关节空间映射模型}
+
+主臂读出的七关节量经缩放与偏置后作为从臂关节指令。设主臂第 $i$ 关节原始读数为 $\theta^{\mathrm{L}}_i$，经模式函数 $\phi(\cdot)$ 转为主臂侧用于映射的弧度量 $\tilde{q}^{\mathrm{L}}_i$（例如度模式时 $\tilde{q}^{\mathrm{L}}_i=\mathrm{rad}(\theta^{\mathrm{L}}_i)$；规范化模式时 $\phi$ 为恒等映射并保持与运行时一致）。记缩放 $\alpha_i$、偏置 $\beta_i$（单位：rad），则从臂指令为
+\begin{equation}
+  q^{\mathrm{F}}_i = \alpha_i \, \tilde{q}^{\mathrm{L}}_i + \beta_i ,
+  \qquad i=1,\ldots,7.
+  \label{eq:subarm-map}
+\end{equation}
+其中 $\boldsymbol{\alpha}$ 不仅承担比例尺度，更常取 $\pm1$ 以\textbf{修正轴向反向}；$\boldsymbol{\beta}$ 承担\textbf{零点对齐}。式~\eqref{eq:subarm-map}与配置类型 \texttt{franka\_fer\_subarm} 的实现一致；在臂+爪配置 \texttt{franka\_fer\_gripper\_subarm} 中，七轴仍遵循式~\eqref{eq:subarm-map}，夹爪另述。
+
+\subsection{两阶段配对标定与自动修正}
+\label{sec:calibrate-pairing}
+
+为从一次对齐姿态与一次夹爪行程中解出 $\boldsymbol{\alpha}$、$\boldsymbol{\beta}$ 及夹爪端点，本文实现脚本 \path{scripts/franka_gripper/calibrate_subarm_pairing.py}（下称\textbf{配对标定脚本}）。脚本在交互上分为两步，输出可直接粘贴至 \texttt{FrankaFER\-Subarm\-Teleoperator\-Config} 或 \texttt{FrankaFER\-Gripper\-Subarm\-Teleoperator\-Config} 的 JSON 片段。
+
+\textbf{（1）关节对齐阶段（解算偏置向量）。}
+操作者与控制员将主臂与 Franka 摆到\textbf{同一物理姿态}（建议选用重复性高的 home 或示教起点）。脚本通过 \texttt{SoFranka} 读取主臂七关节当前值，按运行时计划使用的度/规范化模式转为 $\tilde{q}^{\mathrm{L}}_i$；同时提示输入 Franka 该姿态下的七关节角（缺省为弧度输入，亦可用 \texttt{--franka-input-degrees} 以度制录入后内部换算）。缩放向量 $\boldsymbol{\alpha}$ 由命令行 \texttt{--joint-scale} 给出（七个逗号分隔浮点数，典型为 $\pm1$ 组合，用于在安装反向后仍能逐轴对齐）。\textbf{偏置自动修正公式}为
+\begin{equation}
+  \beta_i = q^{\mathrm{F}}_i - \alpha_i \, \tilde{q}^{\mathrm{L}}_i ,
+  \qquad i=1,\ldots,7,
+  \label{eq:subarm-offset}
+\end{equation}
+其中 $q^{\mathrm{F}}_i$ 为 Franka 在该对齐姿态的关节弧度。式~\eqref{eq:subarm-offset}与 \texttt{FrankaFER\-Subarm\-Teleoperator} 中“先按 $\boldsymbol{\alpha}$ 缩放主臂量、再加 $\boldsymbol{\beta}$”的语义严格一致，从而保证标定与运行时同一解。若主臂工作于度模式而 Franka 始终以弧度为指令单位，脚本在文档与日志中明确该换算顺序，避免“混用物理单位导致偏置错一个 $\pi$”的常见失误。
+
+\textbf{（2）夹爪量程阶段（解算开合端点）。}
+在完成或不参与臂阶段标定后，操作者将主臂夹爪\textbf{完全闭合}与\textbf{完全张开}各一次并在提示时确认；脚本记录两次原始读数 $g_{\mathrm{closed}}$、$g_{\mathrm{open}}$，对应写入配置的 \texttt{gripper\_raw\_at\_closed}、\texttt{gripper\_raw\_at\_open}。运行时归一化与录制脚本中一致：
+\begin{equation}
+  g_{[0,1]} = \mathrm{clip}\!\left(
+    \frac{g_{\mathrm{raw}} - g_{\mathrm{closed}}}{g_{\mathrm{open}} - g_{\mathrm{closed}}},\,
+    0,\,1
+  \right),
+  \label{eq:gripper-norm}
+\end{equation}
+并在 $g_{\mathrm{open}}\approx g_{\mathrm{closed}}$ 等退化情形保留安全截断逻辑。若开闭原始读数方向相反，运行时仍可通过交换端点定义或反向映射保持 $0$ 对应闭合、$1$ 对应张开（与 \texttt{FrankaFER\-Gripper\-Subarm\-Teleoperator} 中的分支一致）。
+
+\textbf{工程选项与可维护性。}
+脚本支持 \texttt{--leader-port} 指定主臂串口；\texttt{--leader-normalized} 切换主臂关节是否为 $[-100,100]$ 规范化读数而非度；\texttt{--skip-arm} / \texttt{--skip-gripper} 仅重标定其中一环，便于现场迭代。标定结束后脚本以 JSON 统一打印 \texttt{arm} 与 \texttt{gripper} 字段及注释字段，可直接进入版本管理，实现“更换主臂/重新固零—重跑脚本—更新配置文件”的闭环。
+
+\subsection{与录制管线及数据质量的衔接}
+
+配置类型 \texttt{franka\_fer\_subarm} 与 \texttt{franka\_fer\_gripper\_subarm} 均实现统一 \texttt{get\_action}，可与 LeRobot 标准录制流程或自定义循环组合：交替读取机器人观测与遥操作动作，按 LeRobot 数据集 schema 序列化。时间戳对齐上，建议以机器人状态回执或统一主机时钟为基准，对图像帧与关节指令做最近邻或插值对齐；工程上可通过固定控制频率与阻塞读减少抖动，并在元数据中记录相机帧率与伺服周期。经过配对标定后的主从映射，可显著降低“同一条示教意图”在关节空间的批间方差，有利于小规模高质量轨迹（例如五十条量级）上策略网络的收敛与泛化——该数据规模与后续 $\pi_{0.5}$ 实验章节相对应。
+
+\section{开源与可复现性说明}
+\label{sec:opensource}
+
+本文将上述扩展以 Git 仓库形式公开发布（基于 LeRobot 指定 commit 的补丁式目录合并），包含 \path{franka_server} 构建脚本、Python 侧 \path{src/lerobot} 增量、\path{scripts} 下 SpaceMouse/主从臂/夹爪组合的录制与回放示例，以及配对标定脚本 \path{scripts/franka_gripper/calibrate_subarm_pairing.py}。第三方使用流程可概括为：在 RT PC 编译并常驻服务端；将 Python 包安装为可编辑模式；按硬件拓扑选择 \texttt{RobotConfig}/\texttt{TeleoperatorConfig} 的 \texttt{type} 并填入网络与串口参数；运行配对标定脚本生成 JSON；最后调用 LeRobot 数据录制接口完成示教。
+
+通过该方式，Franka 不但在物理意义上“控制稳定”，在软件生态上与 LeRobot 的“通用机器人与遥操作抽象”对齐；同构主从路径在\textbf{参数可标定、可版本化}意义上形成可独立复用的工程模块——这也是本章相对“单纯驱动打通”而言的主要贡献。

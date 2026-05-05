@@ -66,8 +66,14 @@ if ([string]::IsNullOrWhiteSpace($remoteUrl)) {
     exit 0
 }
 
-& $script:GitExe remote get-url origin 2>$null | Out-Null
-if ($LASTEXITCODE -eq 0) {
+# Do not use "git remote get-url origin" here: git writes to stderr when missing, and with
+# $ErrorActionPreference=Stop PowerShell treats that as terminating. Listing remotes is benign.
+$remoteNames = @(& $script:GitExe @("remote"))
+if ($LASTEXITCODE -ne 0) {
+    throw "git remote failed (exit $LASTEXITCODE)"
+}
+$hasOrigin = $remoteNames -contains "origin"
+if ($hasOrigin) {
     Invoke-Git @("remote", "set-url", "origin", $remoteUrl)
 } else {
     Invoke-Git @("remote", "add", "origin", $remoteUrl)

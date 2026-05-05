@@ -6,6 +6,9 @@
 /LeFranX-main/
 LeFranX-main.zip
 
+# 训练产生的模型 checkpoint（体积大，勿纳入版本库）
+/checkpoints/
+
 # Created by https://www.toptal.com/developers/gitignore/api/latex
 # Edit at https://www.toptal.com/developers/gitignore?templates=latex
 

@@ -1,95 +1,88 @@
 %%
-% BIThesis 本科毕业设计论文模板 —— 使用 XeLaTeX 编译 The BIThesis Template for Undergraduate Thesis
-% This file has no copyright assigned and is placed in the Public Domain.
+% 第一章：绪论
 %%
 
-% 第一章节
-\chapter{一级题目}
+\chapter{绪论}
+\label{chap:introduction}
 
-\section{二级题目}
-% 这里插入一个参考文献，仅作参考
+面向非结构化环境的机械臂操作是机器人学与人工智能交叉研究的前沿方向。近年来，视觉--语言--动作（Vision-Language-Action, VLA）模型将多模态大模型的语义理解与机器人动作生成相统一，
+为“自然语言条件下的灵巧操作”提供了新的技术路径\parencite{black2024pi0,black2025pi05}。
+与此同时，工业界与学术界相继开源了面向模仿学习与数据标准化的软件栈（如 Hugging Face LeRobot\parencite{lerobotRepo}），
+降低了数据采集与策略训练的工程门槛。然而，从公开算法到具体实验室的异构硬件（高精度力控臂、多路相机、实时控制链路），
+中间仍普遍存在\textbf{接口割裂、时序对齐困难、示教可重复性差}等问题；尤其是面向 $\pi_{0.5}$ 等新一代分层 VLA 的部署，
+往往要求\textbf{稳定的底层执行、与通用数据集规范对齐的观测--动作字段、以及可诊断的在线闭环}，这些能力难以仅靠“更换若干超参数”获得。
 
-\subsection{三级题目}
+在此背景下，\textbf{领域重要性}体现在两方面：其一，桌面抓取与放置类任务在物流分拣、
+实验室自动化与服务业场景中需求广泛，且同时考验\textbf{全局场景理解}与\textbf{接触阶段的精细反馈}；
+其二，VLA 的论文级结果多在特定机器人形态与数据规模下呈现，若缺少与本平台一致的\textbf{全栈贯通}，
+则难以判断性能瓶颈究竟来自模型、数据还是部署方式。
+值得说明的是，本实验室在引进 Franka 等先进臂式平台并探索 VLA 软硬件闭环的过程中，需要从底层逐步培养能够驾驭实时控制、开源框架扩展与策略实装的人才储备；
+在相关岗位与经验尚处积累阶段时，\textbf{笔者与课题同门共同承担从硬件接入、示教采集到策略训练与实机评测的系统性建设任务}，本文即为该链条中以“桌面抓取”为切入点的阶段性工作总结。
 
-正文……\parencite{yuFeiJiZongTiDuoXueKeSheJiYouHuaDeXianZhuangYuFaZhanFangXiang2008}……\cite{Hajela2012Application}
+\section{文献综述与研究现状}
 
-\textcolor{blue}{正文部分：宋体、小四；正文行距：22磅；间距段前段后均为0行。阅后删除此段。}
+\textbf{（1）从行为克隆到 VLA。}
+经典模仿学习以状态（或图像）到动作的映射为主，在固定任务上有效，但对语言条件、跨物体与长阶段的任务分解支持有限。VLA 将自然语言指令、多相机图像与机器人状态共同作为条件，直接学习动作分布或动作块，从而在开放词汇任务上展现出更强的可扩展性\parencite{black2024pi0}。$\pi_{0}$ 系列进一步引入\textbf{动作专家}与 flow matching 等连续动作生成机制，以兼顾大模型语义能力与实机所需的平滑、低时延控制\parencite{black2024pi0,lipman2022flowmatching}。
 
-\textcolor{blue}{图、表居中，图注标在图下方，表头标在表上方，宋体、五号、居中，1.25倍行距，间距段前段后均为0行，图表与上下文之间各空一行。阅后删除此段。}
+\textbf{（2）$\pi_{0.5}$ 与分层推理。}
+$\pi_{0.5}$ 在统一多模态序列建模框架下，将\textbf{高层语义子任务推断}与\textbf{低层动作预测}相耦合，并配合离散动作 token 预训练与连续动作后训练、异构数据协同训练等策略，面向家庭等复杂场景展示了较强的泛化与长程行为组织潜力\parencite{black2025pi05,pertsch2025fast}。其视觉--语言主干广泛继承预训练 VLM（如 PaliGemma 路线\parencite{beyer2024paligemma}）的表征能力，使模型能够在目标域数据有限时仍保留通用感知先验。
 
-\textcolor{blue}{\underline{\underline{图-示例：（阅后删除此段）}}}
+\textbf{（3）数据生态与工程抽象。}
+LeRobot 等框架将机器人观测与动作抽象为统一的张量字典与数据集模式，并提供录制、回放与训练管线的参考实现\parencite{lerobotRepo}，推动了\textbf{“硬件无关的数据表示”}与社区可复现基准的发展。然而，\textbf{将具体商用电控臂（如 Franka）稳定接入该抽象}，仍需处理实时控制进程隔离、网络协议、末端执行器组合建模及遥操作接口扩展等工程问题；上述工作多数是论文正文一笔带过的“附录级”细节，却在实际课题中决定数据是否可用。
 
+\textbf{（4）桌面操作与部署侧研究。}
+桌面抓取在几何约束、摩擦与滚动等非结构扰动下对\textbf{接触瞬间的闭环修正}极为敏感。既有研究既关注抓取规划与学习型策略本身，也日益重视\textbf{推理频率、动作块执行方式与异步/同步控制}对成功率的影响；但在公开讨论中，\textbf{同一训练权重在不同部署脚本下的巨大性能落差}仍相对缺乏系统记录，尤其对 VLA 动作块输出而言，部署策略往往与模型结构同等关键。
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[]{images/bit_logo.png}
-  \caption{标题序号}\label{标题序号} % label 用来在文中索引
-\end{figure}
+\section{现有研究的不足与研究空白}
 
-\textcolor{blue}{\underline{\underline{表-示例：（阅后删除此段）}}}
-% 三线表
-\begin{table}[htbp]
-  \centering
-  \caption{统计表}\label{统计表}
-  \begin{tabular}{*{5}{>{\centering\arraybackslash}p{2cm}}} \toprule
-    项目    & 产量    & 销量    & 产值   & 比重    \\ \midrule
-    手机    & 1000  & 10000 & 500  & 50\%  \\
-    计算机   & 5500  & 5000  & 220  & 22\%  \\
-    笔记本电脑 & 1100  & 1000  & 280  & 28\%  \\ \midrule
-    合计    & 17600 & 16000 & 1000 & 100\% \\ \bottomrule
-    \end{tabular}
-\end{table}
+综合上述脉络，现有工作尚存在以下与本文课题密切相关的\textbf{研究空白}：
 
-\textcolor{blue}{公式标注应于该公式所在行的最右侧。对于较长的公式只可在符号处（+、-、*、/、$\leqslant$ $\geqslant$ 等）转行。在文中引用公式时，在标号前加“式”，如式（1-2）。阅后删除此
-段。}
+\begin{enumerate}
+  \item \textbf{平台落地鸿沟。} 公开 VLA 与 LeRobot 生态多以若干“标准型”机器人为第一公民，Franka 等平台若缺少与 \texttt{Robot}/\texttt{Teleoperator} 约定一致的实现，则难以直接复用社区训练脚本，更无法保证示教数据与策略消费端的字段一一对应。
+  \item \textbf{示教质量与可复现性。} 同构主从与标量输入设备等遥操作方案广泛使用，但安装误差、轴向反向与夹爪量程不一致会导致示教轨迹在关节空间出现系统偏差；若缺少\textbf{可文件化、可自动解算}的标定流程，则小规模高质量数据难以稳定获得。
+  \item \textbf{小规模专用数据下的迁移验证。} $\pi_{0.5}$ 原设定面向移动双臂与高覆盖多相机配置，而静态单臂桌面任务的观测--动作维度更紧凑；\textbf{如何在十余小时以下、数十条轨迹量级}完成可用的任务特化微调，并与实机接口严格对齐，仍需面向具体平台给出可检验的实现路径。
+  \item \textbf{部署闭环与性能解释。} 动作块预测在理论上利于平滑与快速推理，但若在线执行仍偏长时开环，接触敏感任务可能出现成功率坍塌；现有文献对“同一模型、不同闭环脚本”的对比往往不足，不利于形成可迁移的部署准则。
+\end{enumerate}
 
-\textcolor{blue}{公式-示例：（阅后删除此段）}
-% 公式上下不要空行，置于同一个段落下即可，否则上下距离会出现高度不一致的问题
-\begin{equation}
-    LRI=1\ ∕\ \sqrt{1+{\left(\frac{{\mu }_{R}}{{\mu }_{s}}\right)}^{2}{\left(\frac{{\delta }_{R}}{{\delta }_{s}}\right)}^{2}}
-\end{equation}
+由此，本文将问题凝练为：在实验室自建 Franka--LeRobot--OpenPI（$\pi_{0.5}$）全流程的前提下，\textbf{能否以标准化示教数据与针对性接口适配，在桌面抓取任务上实现可用的 VLA 策略，并厘清部署闭环对实机性能的决定性作用？}
 
+\section{研究问题、目标与假设}
 
-\section{字体效果表格}
+\textbf{研究问题。}
+\begin{enumerate}
+  \item 如何将 Franka 实时控制与 LeRobot 通用机器人/遥操作抽象对接，使观测--动作 schema、录制流程与后续训练入口一致？
+  \item 如何组织面向桌面抓取的多相机示教数据，使其符合 LeRobot \texttt{v2.1} 规范并支撑 $\pi_{0.5}$ 微调？
+  \item 在有限样本条件下，$\pi_{0.5}$ 经迁移训练后能否完成静平台单臂抓取--搬运--放置？在线执行策略如何影响成功率与失败恢复？
+\end{enumerate}
 
-% 列：Regular、Italic、Bold、Bold Italic
-% 行：宋体、黑体、楷体、Serif、Sans Serif、Typewriter、Math
+\textbf{研究目标。}
+构建“底层执行—数据采集—模型训练—实机部署”的闭环系统；以苹果抓取并放置至指定区域为任务实例，完成可复现的接口扩展、数据集构建、$\pi_{0.5}$ 训练配置与对比实验，并形成可推广的部署经验。
 
-\begin{table}[htb]
-    \centering
-    \caption{字体效果表格}
-    \begin{tabular}{@{}lllll@{}}
-    \toprule
-               & Regular & Bold & Italic & Bold Italic \\ \midrule
-      宋体       & 宋体      & \colorbox{orange}{\textbf{宋体粗体}} & \textit{楷体}     &   \colorbox{gray}{\textbf{\textit{楷书粗斜体}}}  \\
-      黑体         & {\heiti{}黑体}      & \textbf{\heiti{}黑体粗体} &   \textit{\heiti{}黑体斜体}     & \colorbox{gray}{\textit{\textbf{\heiti{}黑体粗斜体}}}   \\
-      楷体         & {\kaishu{}楷书}      & \textbf{\kaishu{}楷书粗体} & \textit{\kaishu{}斜体楷体} &  \colorbox{gray}{\textbf{\textit{\kaishu{}楷书粗斜体}}}    \\
-    Serif(Roman/Normal)      &    Regular    &  \textbf{Bold}  &    \textit{Italic}    &     \textbf{\textit{Bold Italic}}    \\
-    Sans Serif &  \textsf{Regular}       &  \textbf{\textsf{Bold}}    &  \textit{\textsf{Bold}}   &    \textbf{\textit{\textsf{Bold}}}   \\
-    % 有些字体缺少特定变体，LaTeX会抛出警告，同时尽量替换为相近变体。
-    % 若编译结果能接受，可忽略之。
-    % 例如此处Typewriter代表的Latin Modern Sans Typewriter（lmtt）字体没有bold extended italic（bx/it）变体，
-    % 所以`\textbf{\textit{\texttt{…}}}`会被替换为bold slant（b/sl）变体，并引发如下警告。（其中TU指字体编码）
-    % Font shape `TU/lmtt/bx/it' in size <…> not available. Font shape `TU/lmtt/b/sl' tried instead.
-    Typewriter &  \texttt{Regular}       &  \textbf{\texttt{Bold}}    &  \textit{\texttt{Bold}}   &    \textbf{\textit{\texttt{Bold}}}   \\
-    Math       &   $\mathnormal{Regular} \mathrm{Roman}$  & $\mathbf{Bold}$   &    $\mathit{Italic}$    &  $\mathbf{\mathit{Bold Italic}}$    \\ \bottomrule
-    \end{tabular}
-\end{table}
+\textbf{研究假设。}
+\begin{enumerate}
+  \item \textbf{假设 H1（迁移可行性）。} 在加载 $\pi_{0.5}$ 预训练权重的前提下，规模在数十条轨迹量级的 LeRobot 规范数据集足以支撑 Franka 桌面窄分布任务的微调，使策略学到稳定的粗定位—对准—夹取—搬运行为模式。
+  \item \textbf{假设 H2（闭环敏感性）。} 对于易滑移、强接触的桌面物体，\textbf{短时域动作块执行 + 高频重推理}的部署方式相比偏异步、长开环的执行方式，将显著提升抓取成功率与过程稳定性；性能差异主要归因于闭环方式而非单一权重差异。
+\end{enumerate}
 
-\begin{itemize}[nosep]
-  \item \colorbox{orange}{宋体粗体}在 Windows 下会成为黑体。这是因为 Windows 的中易宋体没有粗体字重而进行的妥协。
-    如果想要获得宋体粗体的样式，请在配置中开启伪粗体选项。
-  \item \colorbox{gray}{粗斜体}的效果是因操作系统字体而定的，中文写作中不会使用这种字形，可以忽略。
-\end{itemize}
+\section{研究方法与技术路线}
 
-\textit{有关公式与上下文间距的一些注意事项：请保证源码中的公式的环境（如}
-\\ \verb|\begin{equation}|
-  \textit{）与上一段落不要有空行。否则，公式和上文段落之间会有额外的空白。}
+全文采用\textbf{工程实现与实验验证相结合}的技术路线，与后续章节对应关系如下。
 
+\textbf{（1）系统集成与接口扩展（对应第二章）。} 在 RT PC 侧部署基于 \texttt{libfranka} 与轨迹平滑的 \path{franka_server}，以套接字协议与上位机解耦；在 LeRobot 中实现 \texttt{FrankaFER} 及臂--夹爪复合配置，并扩展 SpaceMouse 与同构主从两类 \texttt{Teleoperator}；主从路径采用可配置关节映射与\textbf{两阶段配对标定脚本}，保证示教可重复。
 
-\section{常见问题和疑难解答}
+\textbf{（2）数据采集与规范对齐（对应第三章）。} 在统一帧率与多相机布局下录制示教，落盘为 LeRobot \texttt{v2.1} 目录结构；明确 \texttt{action}、\texttt{observation.state}、双路 RGB 等字段语义，并以 Rerun 等工具做质量抽检。
 
-如果您遇到\href{https://bithesis.bitnp.net/faq/char-missing.html}{生僻字无法显示}、
-\href{https://bithesis.bitnp.net/faq/enumitem-nosep.html}{列表项间距过大}、
-\href{https://bithesis.bitnp.net/faq/longtable.html}{三线表需要跨页}等问题，
-请参考\textcolor{magenta}{\href{https://bithesis.bitnp.net/faq/}{在线文档的「疑难杂症」部分}}。
+\textbf{（3）模型训练与实机评测（对应第四章）。} 将双视角图像与八维状态/动作映射至 OpenPI 训练接口，在 $\pi_{0.5}$ 基座权重上微调；对比异步远程客户端与分段同步闭环两类部署脚本，从成功率与失败模式分析假设 H2；并对若干变体（如记忆设置等）做讨论。
+
+\section{主要贡献与创新点}
+
+本文工作属于在特定实验室条件下的\textbf{全栈贯通与机制验证}，主要贡献概括如下：
+
+\begin{enumerate}
+  \item \textbf{面向 Franka--LeRobot 的一体化接口实现。} 将实时控制服务、通用 \texttt{Robot} 抽象与多种遥操作入口统一在同一数据录制语义下，降低与 $\pi_{0.5}$ / OpenPI 训练栈的对接成本。
+  \item \textbf{参数可文件化、可自动解算的主从示教链路。} 相较仅给出硬件连接说明的实现，本文将缩放、偏置与夹爪量程纳入可版本化配置，并提供交互式标定脚本以抑制装配与零点误差带来的数据污染。
+  \item \textbf{符合社区规范的小规模桌面抓取数据集实例。} 以 \path{pick_apple_4_18/} 为例，展示任务语义、双相机互补视角与帧级特征如何嵌入 LeRobot \texttt{v2.1}，支撑小规模专用微调。
+  \item \textbf{$\pi_{0.5}$ 向静平台 Franka 桌面任务的迁移与部署剖析。} 完成观测--动作空间重定义与训练配置适配，并通过\textbf{同一权重的不同在线闭环策略}量化部署因素对接触任务成败的影响，为 VLA 实装提供可复用的经验教训。
+\end{enumerate}
+
+综上，本文在学科意义上呼应了 VLA 由“模型论文”走向“平台可交付”的趋势；在培养路径上，体现了实验室在先进臂式系统与 VLA 流程方面从 0 到 1 的能力积淀过程中，青年研究者的分工协作与工程化攻关价值。

@@ -4,19 +4,60 @@
 %%
 
 \begin{appendices}
-  附录相关内容…
 
-  % 这里示范一下添加多个附录的方法：
-  % 使用 \section 来添加一个附录
+\section{缩略语与符号说明}
 
-  \section{\LaTeX 环境的安装}
-  \LaTeX 环境的安装。
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{文中常用缩略语}
+  \label{tab:appendix-abbr}
+  \begin{tabular}{ll}
+    \toprule
+    缩略语 & 英文全称及中文含义 \\
+    \midrule
+    VLA & Vision-Language-Action，视觉—语言—动作（模型） \\
+    VLM & Vision-Language Model，视觉—语言模型 \\
+    IK & Inverse Kinematics，逆运动学 \\
+    RGB & Red-Green-Blue，三通道彩色图像 \\
+    RT PC & Real-Time PC，机器人实时控制计算机 \\
+    TCP & Transmission Control Protocol，传输控制协议 \\
+    API & Application Programming Interface，应用程序接口 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
-  \section{BIThesis 使用说明}
-  BIThesis 使用说明。
+文中若干符号与第二、四章公式一致：主从关节映射中 $\alpha_i$、$\beta_i$ 分别为第 $i$ 轴缩放与偏置；夹爪归一化量记为 $g_{[0,1]}$；$\pi_{0.5}$ 的策略分解记法见第四章式\eqref{eq:pi05-il} 与式\eqref{eq:pi05-factor}。数据集 \texttt{pick\_apple\_4\_18} 的帧级特征键名见第三章表~\ref{tab:pick-apple-features}。
 
-  \textcolor{blue}{附录是毕业设计（论文）主体的补充项目，为了体现整篇文章的完整性，写入正文又可能有损于论文的条理性、逻辑性和精炼性，这些材料可以写入附录段，但对于每一篇文章并不是必须的。附录依次用大写正体英文字母 A、B、C……编序号，如附录 A、附录 B。阅后删除此段。}
+\section{实验与工程环境概要}
 
-  \textcolor{blue}{附录正文样式与文章正文相同：宋体、小四；行距：22 磅；间距段前段后均为 0 行。阅后删除此段。}
+\textbf{机器人与控制：} Franka Emika Panda（或同系列）七轴协作臂，末端配置二指电驱夹爪；实时侧运行基于官方 \texttt{libfranka} 的 \path{franka_server} 服务，轨迹平滑采用 Ruckig 库；上位机与实时机通过局域网套接字交互。
+
+\textbf{感知与遥操作：} 第三人称与腕部 RGB 相机（规格以数据集 \path{meta/info.json} 中声明为准，如 $1280\times720$、标称 $10~\mathrm{Hz}$）；三维鼠标用于笛卡尔增量示教；同构主从由主臂读数经标定后映射至从臂关节目标。配对标定脚本为 \path{scripts/franka_gripper/calibrate_subarm_pairing.py}（见第二章）。
+
+\textbf{软件栈：} 操作系统以 Windows/Linux 实验室环境为准；Python 侧基于 Hugging Face LeRobot 约定版本扩展 \texttt{Robot}/\texttt{Teleoperator}；策略训练与远端推理基于 OpenPI（$\pi_{0.5}$）及工程内 \texttt{config.py} 中 \texttt{pi05\_franka\_pick\_apple} 等配置；可视化抽检可使用 Rerun。具体依赖版本以毕业设计代码仓库锁定的环境（如 \texttt{requirements}、容器或文档说明）为准，附录不替代版本管理文件。
+
+\section{LeRobot 配置类型速查}
+
+表~\ref{tab:appendix-lerobot-types}汇总第二章所述主要 \texttt{type} 字段，便于部署时对照；详述与类名仍以第二章表~\ref{tab:module-map} 及正文为准。
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{本文扩展的 LeRobot 配置 \texttt{type} 速查}
+  \label{tab:appendix-lerobot-types}
+  \begin{tabular}{>{\raggedright\arraybackslash}p{4.6cm}>{\raggedright\arraybackslash}p{7.4cm}}
+    \toprule
+    \texttt{type} & 简要说明 \\
+    \midrule
+    \texttt{franka\_fer} & Franka 从臂，关节目标动作，无独立夹爪通道 \\
+    \texttt{franka\_fer\_gripper} & 臂 + 夹爪八维观测与动作 \\
+    \texttt{franka\_fer\_spacemouse} & 三维鼠标遥操作（臂） \\
+    \texttt{franka\_fer\_gripper\_spacemouse} & 三维鼠标遥操作（臂 + 夹爪） \\
+    \texttt{franka\_fer\_subarm} & 同构主从关节映射（臂） \\
+    \texttt{franka\_fer\_gripper\_subarm} & 同构主从关节映射（臂 + 夹爪） \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \end{appendices}

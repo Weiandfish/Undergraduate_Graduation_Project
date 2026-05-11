@@ -31,11 +31,11 @@
 
 \section{实验与工程环境概要}
 
-\textbf{机器人与控制：} Franka Emika Panda（或同系列）七轴协作臂，末端配置二指电驱夹爪；实时侧运行基于官方 \texttt{libfranka} 的 \path{franka_server} 服务，轨迹平滑采用 Ruckig 库；上位机与实时机通过局域网套接字交互。
+机器人与控制： Franka Emika Panda（或同系列）七轴协作臂，末端配置二指电驱夹爪；实时侧运行基于官方 \texttt{libfranka} 的 \path{franka_server} 服务，轨迹平滑采用 Ruckig 库；上位机与实时机通过局域网套接字交互。
 
-\textbf{感知与遥操作：} 第三人称与腕部 RGB 相机（规格以数据集 \path{meta/info.json} 中声明为准，如 $1280\times720$、标称 $10~\mathrm{Hz}$）；三维鼠标用于笛卡尔增量示教；同构主从由主臂读数经标定后映射至从臂关节目标。配对标定脚本为 \path{scripts/franka_gripper/calibrate_subarm_pairing.py}（见第二章）。
+感知与遥操作： 第三人称与腕部 RGB 相机（规格以数据集 \path{meta/info.json} 中声明为准，如 $1280\times720$、标称 $10~\mathrm{Hz}$）；三维鼠标用于笛卡尔增量示教；同构主从由主臂读数经标定后映射至从臂关节目标。配对标定脚本为 \path{scripts/franka_gripper/calibrate_subarm_pairing.py}（见第二章）。
 
-\textbf{软件栈：} 操作系统以 Windows/Linux 实验室环境为准；Python 侧基于 Hugging Face LeRobot 约定版本扩展 \texttt{Robot}/\texttt{Teleoperator}；策略训练与远端推理基于 OpenPI（$\pi_{0.5}$）及工程内 \texttt{config.py} 中 \texttt{pi05\_franka\_pick\_apple} 等配置；可视化抽检可使用 Rerun。具体依赖版本以毕业设计代码仓库锁定的环境（如 \texttt{requirements}、容器或文档说明）为准，附录不替代版本管理文件。
+软件栈： 操作系统以 Windows/Linux 实验室环境为准；Python 侧基于 Hugging Face LeRobot 约定版本扩展 \texttt{Robot}/\texttt{Teleoperator}；策略训练与远端推理基于 OpenPI（$\pi_{0.5}$）及工程内 \texttt{config.py} 中 \texttt{pi05\_franka\_pick\_apple} 等配置；可视化抽检可使用 Rerun。具体依赖版本以毕业设计代码仓库锁定的环境（如 \texttt{requirements}、容器或文档说明）为准，附录不替代版本管理文件。
 
 \section{LeRobot 配置类型速查}
 
@@ -46,7 +46,7 @@
   \small
   \caption{本文扩展的 LeRobot 配置 \texttt{type} 速查}
   \label{tab:appendix-lerobot-types}
-  \begin{tabular}{>{\raggedright\arraybackslash}p{4.6cm}>{\raggedright\arraybackslash}p{7.4cm}}
+  \begin{tabular}{>{\raggedright\arraybackslash}p{6.6cm}>{\raggedright\arraybackslash}p{7.4cm}}
     \toprule
     \texttt{type} & 简要说明 \\
     \midrule

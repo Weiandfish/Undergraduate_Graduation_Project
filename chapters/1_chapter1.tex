@@ -9,80 +9,183 @@
 为“自然语言条件下的灵巧操作”提供了新的技术路径\parencite{black2024pi0,black2025pi05}。
 与此同时，工业界与学术界相继开源了面向模仿学习与数据标准化的软件栈（如 Hugging Face LeRobot\parencite{lerobotRepo}），
 降低了数据采集与策略训练的工程门槛。然而，从公开算法到具体实验室的异构硬件（高精度力控臂、多路相机、实时控制链路），
-中间仍普遍存在\textbf{接口割裂、时序对齐困难、示教可重复性差}等问题；尤其是面向 $\pi_{0.5}$ 等新一代分层 VLA 的部署，
-往往要求\textbf{稳定的底层执行、与通用数据集规范对齐的观测--动作字段、以及可诊断的在线闭环}，这些能力难以仅靠“更换若干超参数”获得。
+中间仍普遍存在接口割裂、时序对齐困难、示教可重复性差等问题；尤其是面向 $\pi_{0.5}$ 等新一代分层 VLA 的部署，
+往往要求稳定的底层执行、与通用数据集规范对齐的观测--动作字段、以及可诊断的在线闭环，这些能力难以仅靠“更换若干超参数”获得。
 
-在此背景下，\textbf{领域重要性}体现在两方面：其一，桌面抓取与放置类任务在物流分拣、
-实验室自动化与服务业场景中需求广泛，且同时考验\textbf{全局场景理解}与\textbf{接触阶段的精细反馈}；
-其二，VLA 的论文级结果多在特定机器人形态与数据规模下呈现，若缺少与本平台一致的\textbf{全栈贯通}，
+在此背景下，领域重要性体现在两方面：其一，桌面抓取与放置类任务在物流分拣、
+实验室自动化与服务业场景中需求广泛，且同时考验全局场景理解与接触阶段的精细反馈；
+其二，VLA 的论文级结果多在特定机器人形态与数据规模下呈现，若缺少与本平台一致的全栈贯通，
 则难以判断性能瓶颈究竟来自模型、数据还是部署方式。
 值得说明的是，本实验室在引进 Franka 等先进臂式平台并探索 VLA 软硬件闭环的过程中，需要从底层逐步培养能够驾驭实时控制、开源框架扩展与策略实装的人才储备；
-在相关岗位与经验尚处积累阶段时，\textbf{笔者与课题同门共同承担从硬件接入、示教采集到策略训练与实机评测的系统性建设任务}，本文即为该链条中以“桌面抓取”为切入点的阶段性工作总结。
+在相关岗位与经验尚处积累阶段时，笔者与课题同门共同承担从硬件接入、示教采集到策略训练与实机评测的系统性建设任务，本文即为该链条中以“桌面抓取”为切入点的阶段性工作总结。
 
 \section{文献综述与研究现状}
 
-\textbf{（1）从行为克隆到 VLA。}
-经典模仿学习以状态（或图像）到动作的映射为主，在固定任务上有效，但对语言条件、跨物体与长阶段的任务分解支持有限。VLA 将自然语言指令、多相机图像与机器人状态共同作为条件，直接学习动作分布或动作块，从而在开放词汇任务上展现出更强的可扩展性\parencite{black2024pi0}。$\pi_{0}$ 系列进一步引入\textbf{动作专家}与 flow matching 等连续动作生成机制，以兼顾大模型语义能力与实机所需的平滑、低时延控制\parencite{black2024pi0,lipman2022flowmatching}。
+（1）视觉—语言与机器人早期对齐。
+在 VLA 之前就已有大量工作探索如何将语言与可操作视觉表征结合。
+\textsc{Cliport}\parencite{shridhar2021cliport} 将 CLIP 式语义与 ``where'' 空间变换网络结合，实现语言条件下的桌面抓取；
+\textsc{SayCan}\parencite{ahn2022saycan} 用语言模型产生子任务，再用价值函数筛选当前环境下可执行的一步，缓解 ``会说不会做''；
+\textsc{VIMA}\parencite{jiang2022vima} 则支持图文交错的多模态提示，为 ``指图操作'' 类交互奠定基础。
+这一阶段的工作说明：仅有语言或仅有像素都不足以应对长程操作，跨模态对齐与可执行性约束必须协同设计。
 
-\textbf{（2）$\pi_{0.5}$ 与分层推理。}
-$\pi_{0.5}$ 在统一多模态序列建模框架下，将\textbf{高层语义子任务推断}与\textbf{低层动作预测}相耦合，并配合离散动作 token 预训练与连续动作后训练、异构数据协同训练等策略，面向家庭等复杂场景展示了较强的泛化与长程行为组织潜力\parencite{black2025pi05,pertsch2025fast}。其视觉--语言主干广泛继承预训练 VLM（如 PaliGemma 路线\parencite{beyer2024paligemma}）的表征能力，使模型能够在目标域数据有限时仍保留通用感知先验。
+（2）具身基础模型与通才策略。
+\textsc{PaLM-E}\parencite{driess2023palme} 将机器人感知流注入超大语言模型，实现长程规划与场景理解；
+\textsc{RoboCat}\parencite{bousmalis2023robocat} 强调自改进与跨机械臂形态迁移；
+体素化动作建模方面，\textsc{Perceiver-Actor}\parencite{shridhar2022perceiveractor} 在三维占用栅格上输出动作，有利于遮挡与多物体堆叠。
+当前社区主流进一步转向以真机机器人数据与统一数据 schema 为约束的高容量策略网络，而非仅在仿真或单一形态上验证的通才演示。
 
-\textbf{（3）数据生态与工程抽象。}
-LeRobot 等框架将机器人观测与动作抽象为统一的张量字典与数据集模式，并提供录制、回放与训练管线的参考实现\parencite{lerobotRepo}，推动了\textbf{“硬件无关的数据表示”}与社区可复现基准的发展。然而，\textbf{将具体商用电控臂（如 Franka）稳定接入该抽象}，仍需处理实时控制进程隔离、网络协议、末端执行器组合建模及遥操作接口扩展等工程问题；上述工作多数是论文正文一笔带过的“附录级”细节，却在实际课题中决定数据是否可用。
+（3）从 \textsc{RT-1}/\textsc{RT-2} 到开源 VLA 与跨本体数据。
+\textsc{RT-1}\parencite{brohan2022rt1} 证明在超大规模真机数据上训练的高容量模型可获得鲁棒策略；
+\textsc{RT-2}\parencite{brohan2023rt2} 将网络图文先验与离散动作 token 结合，使 ``网络知识'' 可迁移到机器人控制；
+\textsc{Open~X-Embodiment}\parencite{oneill2024openxembodiment} 联合多实验室、多本体数据训练 \textsc{RT-X}，标志着跨硬件统计迁移成为社区共识。
+开源侧，\textsc{OpenVLA}\parencite{kim2024openvla} 与 \textsc{Octo}\parencite{ghosh2024octo} 提供了可本地微调、可替换相机与语言条件的通用策略；
+\textsc{RoboFlamingo-Plus}\parencite{wang2025roboflamingoplus} 则进一步融合深度与 \textsc{RGB}，缓解纯二维投影造成的深度歧义。
 
-\textbf{（4）桌面操作与部署侧研究。}
-桌面抓取在几何约束、摩擦与滚动等非结构扰动下对\textbf{接触瞬间的闭环修正}极为敏感。既有研究既关注抓取规划与学习型策略本身，也日益重视\textbf{推理频率、动作块执行方式与异步/同步控制}对成功率的影响；但在公开讨论中，\textbf{同一训练权重在不同部署脚本下的巨大性能落差}仍相对缺乏系统记录，尤其对 VLA 动作块输出而言，部署策略往往与模型结构同等关键。
+（4）空间推理、三维世界模型与开放词汇系统。
+\textsc{SpatialVLM}\parencite{chen2024spatialvlm} 赋予 \textsc{VLM} 度量级空间判断能力；
+\textsc{3D-VLA}\parencite{zhen20243dvla} 将动作生成与三维世界建模耦合，面向长程后果预测；
+\textsc{OK-Robot}\parencite{liu2024okrobot} 系统分析了 ``堆叠开放知识模块'' 时真正决定成败的工程要素，
+对无再训练或少再训练的快速部署具有参考价值。
+
+（5）遥操作、双臂移动与轨迹表示。
+\textsc{Mobile~ALOHA}\parencite{fu2024mobilealoha} 与 \textsc{ALOHA~Unleashed}\parencite{zhao2024alohaunleashed} 推动低成本的全身示教与复杂双手技能；
+\textsc{APT}\parencite{wen2023apt} 用任意点轨迹统一可形变物体与刚体操作，为动作表示提供新视角。
+这些数据范式与 \textsc{LeRobot}\parencite{lerobotRepo} 的统一张量规范相衔接，使社区能够快速沉淀可训练数据集。
+
+（6）仿真、数据编排与生成式 \textsc{VLA}。
+\textsc{RoboCasa}\parencite{nasiriany2024robocasa}、\textsc{ManiSkill3}\parencite{taole2024maniskill3} 等强调大规模仿真与 \textsc{GPU} 并行，用于弥补真实示教成本；
+\textsc{AutoRT}\parencite{ahn2024autort} 展示如何用具身大模型编排多台机台采集；
+\textsc{GR-2}\parencite{cheang2024gr2} 探索视频—语言先验向机器人动作的生成式迁移。
+在学习机制层面，$\pi^*_{0.6}$\parencite{physicalintelligence2025pi06} 引入经验学习与修正闭环，
+\textsc{FAST}\parencite{pertsch2025fast} 与知识绝缘 \parencite{driess2025knowledge} 则从动作分词与训练效率角度推进 VLA。
+
+（7）$\pi_0$/$\pi_{0.5}$ 与连续动作建模。
+$\pi_0$\parencite{black2024pi0}、$\pi_{0.5}$\parencite{black2025pi05} 将预训练视觉—语言主干
+（如 \textsc{PaliGemma}\allowbreak\parencite{beyer2024paligemma}）与动作专家结合，
+并以 flow matching\parencite{lipman2022flowmatching} 建模连续动作分布，
+代表当前面向真机高频控制的一条主流路线。
+本文即以 $\pi_{0.5}$ 为主线，在其开放权重与训练栈上进行任务迁移。
+
+（8）桌面操作与部署侧共识（承接上文）。
+桌面抓取在几何约束、摩擦与滚动等非结构扰动下对接触瞬间的闭环修正极为敏感。
+既有研究既关注抓取规划与学习型策略本身，也日益重视推理频率、动作块执行方式与异步/同步控制对成功率的影响；
+但在公开讨论中，同一训练权重在不同部署脚本下的巨大性能落差仍相对缺乏系统记录，尤其对 VLA 动作块输出而言，部署策略往往与模型结构同等关键。
 
 \section{现有研究的不足与研究空白}
 
-综合上述脉络，现有工作尚存在以下与本文课题密切相关的\textbf{研究空白}：
+综合上述脉络，现有工作尚存在以下与本文课题密切相关的研究空白：
 
 \begin{enumerate}
-  \item \textbf{平台落地鸿沟。} 公开 VLA 与 LeRobot 生态多以若干“标准型”机器人为第一公民，Franka 等平台若缺少与 \texttt{Robot}/\texttt{Teleoperator} 约定一致的实现，则难以直接复用社区训练脚本，更无法保证示教数据与策略消费端的字段一一对应。
-  \item \textbf{示教质量与可复现性。} 同构主从与标量输入设备等遥操作方案广泛使用，但安装误差、轴向反向与夹爪量程不一致会导致示教轨迹在关节空间出现系统偏差；若缺少\textbf{可文件化、可自动解算}的标定流程，则小规模高质量数据难以稳定获得。
-  \item \textbf{小规模专用数据下的迁移验证。} $\pi_{0.5}$ 原设定面向移动双臂与高覆盖多相机配置，而静态单臂桌面任务的观测--动作维度更紧凑；\textbf{如何在十余小时以下、数十条轨迹量级}完成可用的任务特化微调，并与实机接口严格对齐，仍需面向具体平台给出可检验的实现路径。
-  \item \textbf{部署闭环与性能解释。} 动作块预测在理论上利于平滑与快速推理，但若在线执行仍偏长时开环，接触敏感任务可能出现成功率坍塌；现有文献对“同一模型、不同闭环脚本”的对比往往不足，不利于形成可迁移的部署准则。
+  \item 平台落地鸿沟。 公开 VLA 与 \textsc{LeRobot}\parencite{lerobotRepo} 生态多以若干 ``标准型'' 机器人为第一公民，
+        Franka 等平台若缺少与 \texttt{Robot}/\texttt{Teleoperator} 约定一致的实现，则难以直接复用社区训练脚本，
+        更无法保证示教数据与策略消费端的字段一一对应；而跨本体成果\parencite{oneill2024openxembodiment,kim2024openvla,ghosh2024octo}虽强，
+        仍不能自动消解单平台线缆级工程问题。
+  \item 示教质量与可复现性。 低成本遥操作\parencite{fu2024mobilealoha,zhao2024alohaunleashed}与灵活轨迹表示\parencite{wen2023apt}为数据提供了方法学支撑，
+        但安装误差、轴向反向与夹爪量程不一致会导致关节空间系统偏差；若缺少可文件化、可自动解算的标定流程，
+        则小规模高质量数据难以稳定获得，仿真合成数据\parencite{nasiriany2024robocasa,taole2024maniskill3}亦无法替代本机一致性。
+  \item 小规模专用数据下的迁移验证。 $\pi_{0.5}$\parencite{black2025pi05} 原论文面向移动双臂与高覆盖多相机配置，
+        而静态单臂桌面任务的观测—动作维度更紧凑；如何在十余小时以下、数十条轨迹量级完成可用的任务特化微调，
+        并与实机接口严格对齐，仍需面向具体平台给出可检验的实现路径——这与开放世界报告\parencite{black2025pi05,physicalintelligence2025pi06}形成互补问题。
+  \item 部署闭环与性能解释。 动作块预测\parencite{pertsch2025fast}在理论上利于平滑与快速推理，但若在线执行仍偏长时开环，
+        接触敏感任务可能出现成功率坍塌；现有文献对 ``同一模型、不同闭环脚本'' 的对比往往不足，
+        且空间/三维推理增强\parencite{chen2024spatialvlm,zhen20243dvla}与开放系统集成经验\parencite{liu2024okrobot}很少落实到Franka+双相机+VLA 权重这一典型教学实验配置上。
 \end{enumerate}
 
-由此，本文将问题凝练为：在实验室自建 Franka--LeRobot--OpenPI（$\pi_{0.5}$）全流程的前提下，\textbf{能否以标准化示教数据与针对性接口适配，在桌面抓取任务上实现可用的 VLA 策略，并厘清部署闭环对实机性能的决定性作用？}
+由此，本文将问题凝练为：在实验室自建 Franka--LeRobot--OpenPI（$\pi_{0.5}$）全流程的前提下，能否以标准化示教数据与针对性接口适配，在桌面抓取任务上实现可用的 VLA 策略，并厘清部署闭环对实机性能的决定性作用？
 
 \section{研究问题、目标与假设}
 
-\textbf{研究问题。}
+研究问题。
 \begin{enumerate}
   \item 如何将 Franka 实时控制与 LeRobot 通用机器人/遥操作抽象对接，使观测--动作 schema、录制流程与后续训练入口一致？
   \item 如何组织面向桌面抓取的多相机示教数据，使其符合 LeRobot \texttt{v2.1} 规范并支撑 $\pi_{0.5}$ 微调？
   \item 在有限样本条件下，$\pi_{0.5}$ 经迁移训练后能否完成静平台单臂抓取--搬运--放置？在线执行策略如何影响成功率与失败恢复？
 \end{enumerate}
 
-\textbf{研究目标。}
+研究目标。
 构建“底层执行—数据采集—模型训练—实机部署”的闭环系统；以苹果抓取并放置至指定区域为任务实例，完成可复现的接口扩展、数据集构建、$\pi_{0.5}$ 训练配置与对比实验，并形成可推广的部署经验。
 
-\textbf{研究假设。}
+研究假设。
 \begin{enumerate}
-  \item \textbf{假设 H1（迁移可行性）。} 在加载 $\pi_{0.5}$ 预训练权重的前提下，规模在数十条轨迹量级的 LeRobot 规范数据集足以支撑 Franka 桌面窄分布任务的微调，使策略学到稳定的粗定位—对准—夹取—搬运行为模式。
-  \item \textbf{假设 H2（闭环敏感性）。} 对于易滑移、强接触的桌面物体，\textbf{短时域动作块执行 + 高频重推理}的部署方式相比偏异步、长开环的执行方式，将显著提升抓取成功率与过程稳定性；性能差异主要归因于闭环方式而非单一权重差异。
+  \item 假设 H1（迁移可行性）。 在加载 $\pi_{0.5}$ 预训练权重的前提下，规模在数十条轨迹量级的 LeRobot 规范数据集足以支撑 Franka 桌面窄分布任务的微调，使策略学到稳定的粗定位—对准—夹取—搬运行为模式。
+  \item 假设 H2（闭环敏感性）。 对于易滑移、强接触的桌面物体，短时域动作块执行 + 高频重推理的部署方式相比偏异步、长开环的执行方式，将显著提升抓取成功率与过程稳定性；性能差异主要归因于闭环方式而非单一权重差异。
 \end{enumerate}
 
-\section{研究方法与技术路线}
+\section{研究方法、实验方案与实验环境}
 
-全文采用\textbf{工程实现与实验验证相结合}的技术路线，与后续章节对应关系如下。
+本节概述全文采用的工程与研究思路，并给出实验场所软硬件条件及拟开展的实验内容；其中软硬件配置汇总见表~\ref{tab:intro-lab-env}。
 
-\textbf{（1）系统集成与接口扩展（对应第二章）。} 在 RT PC 侧部署基于 \texttt{libfranka} 与轨迹平滑的 \path{franka_server}，以套接字协议与上位机解耦；在 LeRobot 中实现 \texttt{FrankaFER} 及臂--夹爪复合配置，并扩展 SpaceMouse 与同构主从两类 \texttt{Teleoperator}；主从路径采用可配置关节映射与\textbf{两阶段配对标定脚本}，保证示教可重复。
+\subsection{实验环境与实验室条件}
 
-\textbf{（2）数据采集与规范对齐（对应第三章）。} 在统一帧率与多相机布局下录制示教，落盘为 LeRobot \texttt{v2.1} 目录结构；明确 \texttt{action}、\texttt{observation.state}、双路 RGB 等字段语义，并以 Rerun 等工具做质量抽检。
+（1）硬件环境。
+机械臂：Franka FR3 协作机械臂（7-\textsc{DoF}，重复定位精度约 $\pm 0.1\,\mathrm{mm}$），末端配备知行 \textsc{CTAG2F90C} 双指夹爪。
+感知设备：腕部末端安装 Intel RealSense D445 深度相机（\textsc{RGB} 分辨率 $640\times480@30\,\mathrm{Hz}$，深度量程约 $0.1$--$10\,\mathrm{m}$），获取 egocentric 视角；若配置固定场景机位，则与腕部相机形成互补双视角，外参与同步策略在第三章统一约定。
+计算设备：实验室配备 NVIDIA RTX A6000 显卡（4 张）、Intel Xeon Platinum 8336C 处理器（2 路，32 核 64 线程/路）、DDR4 内存（8 条，每条 $32\,\mathrm{GB}$），用于模型训练与高频推理实验。
+桌面场景：标准办公桌（$120\,\mathrm{cm}\times 60\,\mathrm{cm}$），摆放笔具、积木、文件、杯子等常见物件；辅以可调照度 LED 光源（约 $500$--$2000\,\mathrm{lux}$），便于考察光照变化对感知的影响。
 
-\textbf{（3）模型训练与实机评测（对应第四章）。} 将双视角图像与八维状态/动作映射至 OpenPI 训练接口，在 $\pi_{0.5}$ 基座权重上微调；对比异步远程客户端与分段同步闭环两类部署脚本，从成功率与失败模式分析假设 H2；并对若干变体（如记忆设置等）做讨论。
+（2）软件环境。
+操作系统采用 Ubuntu 22.04 \textsc{LTS}。
+深度学习侧以 PyTorch 2.1 为主进行模型训练；机械臂实时控制沿用第二章所述基于 \texttt{libfranka} 与轨迹平滑的 \path{franka_server}，上位机经套接字协议与 LeRobot 客户端协同。
+机器人数据与遥控录制依托 LeRobot \textsc{SDK}（\texttt{v2.1} 数据布局）；若需与导航、多传感器节点联动，可在同一操作系统上按需启用 ROS~2 及 Franka 相关接口封装作为辅助中间件。
+数据处理与可视化采用 NumPy、Matplotlib，抽检与调试辅以 Rerun 等工具。
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{实验平台软硬件条件一览}
+  \label{tab:intro-lab-env}
+  \begin{tabular}{>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{8.4cm}}
+    \toprule
+    类别 & 项目 & 配置说明 \\
+    \midrule
+    \multirow{5}{*}{硬件} & 机械臂与夹爪 & Franka FR3（7-\textsc{DoF}，重复定位精度约 $\pm 0.1\,\mathrm{mm}$）；知行 \textsc{CTAG2F90C} 双指夹爪 \\
+      & 视觉传感器 & Intel RealSense D445（腕部 egocentric；\textsc{RGB} $640\times480@30\,\mathrm{Hz}$；深度约 $0.1$--$10\,\mathrm{m}$）；可选场景固定机位构成双视角 \\
+      & 计算节点 & RTX A6000 $\times 4$；Xeon Platinum 8336C $\times 2$（32C64T/路）；DDR4 $32\,\mathrm{GB}\times 8$ \\
+      & 场景与光照 & 办公桌 $120\times 60\,\mathrm{cm}$；典型桌面杂物； \\
+      & 网络与控制 & 局域网连接 RT PC（运行 \path{franka_server}）与训练/推理工作站；千兆以太网等 \\
+    \midrule
+    \multirow{4}{*}{软件} & 系统与运行时 & Ubuntu 22.04 \textsc{LTS}；Python 虚拟环境与依赖锁定 \\
+      & 训练框架 & PyTorch 2.1；OpenPI/$\pi_{0.5}$ 训练配置（见第四章） \\
+      & 机器人与数据 & LeRobot \textsc{SDK}；\path{franka_server}（\texttt{libfranka}）；可选 ROS~2 栈 \\
+      & 辅助工具 & NumPy；Matplotlib；Rerun（录制质量抽检） \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{实验方案与技术路线}
+
+实验内容初步归纳为三个方面：桌面操作数据集构建、模型训练与轻量化讨论、系统测试与性能评估。
+工程上与之衔接的全栈路线为``系统集成—数据采集—模型训练—实机评测''，分别对应第二至四章。
+
+（1）桌面操作数据集构建。
+预定采集覆盖多类物体（如苹果、正方体积木等），规模不少于 30 条有效轨迹；每条轨迹包含约 $200$--$500$ 帧多模态数据。
+数据格式严格遵循 LeRobot \texttt{v2.1} 规范：包含 \textsc{RGB} 图像、深度/点云相关信息（依传感器与导出字段而定）、自然语言指令文本、关节角序列与夹爪开合度等，并在采集管线侧通过时间戳对齐（目标误差 $\leqslant 1\,\mathrm{ms}$）。
+标注方面：为每条轨迹划分``定位—抓取—放置''三级子任务标签，并记录目标物体的边界框（bounding box）等语义信息，便于后续与 \textsc{VLA} 的语言—视觉对齐训练衔接。
+
+（2）模型训练与微调。
+在 $\pi_{0.5}$ 开源权重基础上，将第三章构建的数据集接入 OpenPI 训练接口：输入与第四章一致的观测定义（如双路 \textsc{RGB}、关节与夹爪状态等），输出连续动作块；
+采用任务特化微调策略（学习率日程、训练步数、验证划分等按第四章配置执行），并在训练过程中监控损失及必要的离线指标。
+在计算资源允许的前提下，可另行考察轻量化手段（如推理量化、结构裁剪或批量尺寸调节）对参数量、显存占用与推理延迟的影响，但以桌面抓取任务的实机成功率为最终评判依据。
+
+（3）系统测试与性能评估。
+\textit{部署侧指标：}记录轻量化（若实施）后的模型体量、显存占用（如 \texttt{nvidia-smi} 等工具采样）及推理耗时（多次测量取均值）。
+\textit{任务侧指标：}在若干代表性场景下评测单物体抓取、多物体整理、积木堆叠等技能，统计抓取成功率、末端定位误差（由关节反馈与外参推算）及指令跟随正确率。
+\textit{鲁棒性：}对比遮挡程度、照度变化等条件下的性能衰减，分析感知与动作生成链条中的薄弱环节。
+
+\noindent\textbf{与论文章节的对应关系：}
+（i）系统集成与接口扩展（第二章）：在 RT PC 部署 \path{franka_server}，在 LeRobot 中实现 \texttt{FrankaFER}、臂—夹爪复合体及 SpaceMouse/同构主从 \texttt{Teleoperator}，配套标定脚本保证示教一致。
+（ii）数据采集与规范对齐（第三章）：统一帧率与多相机布局，落盘 LeRobot \texttt{v2.1}，明确 \texttt{action}、\texttt{observation.state} 等字段语义并做质量抽检。
+（iii）模型训练与实机评测（第四章）：完成 OpenPI/$\pi_{0.5}$ 映射与训练；对比异步远程客户端与分段同步闭环等部署方式，检验假设 H2，并讨论记忆设置等变体。
 
 \section{主要贡献与创新点}
 
-本文工作属于在特定实验室条件下的\textbf{全栈贯通与机制验证}，主要贡献概括如下：
+本文工作属于在特定实验室条件下的全栈贯通与机制验证，主要贡献概括如下：
 
 \begin{enumerate}
-  \item \textbf{面向 Franka--LeRobot 的一体化接口实现。} 将实时控制服务、通用 \texttt{Robot} 抽象与多种遥操作入口统一在同一数据录制语义下，降低与 $\pi_{0.5}$ / OpenPI 训练栈的对接成本。
-  \item \textbf{参数可文件化、可自动解算的主从示教链路。} 相较仅给出硬件连接说明的实现，本文将缩放、偏置与夹爪量程纳入可版本化配置，并提供交互式标定脚本以抑制装配与零点误差带来的数据污染。
-  \item \textbf{符合社区规范的小规模桌面抓取数据集实例。} 以 \path{pick_apple_4_18/} 为例，展示任务语义、双相机互补视角与帧级特征如何嵌入 LeRobot \texttt{v2.1}，支撑小规模专用微调。
-  \item \textbf{$\pi_{0.5}$ 向静平台 Franka 桌面任务的迁移与部署剖析。} 完成观测--动作空间重定义与训练配置适配，并通过\textbf{同一权重的不同在线闭环策略}量化部署因素对接触任务成败的影响，为 VLA 实装提供可复用的经验教训。
+  \item 面向 Franka--LeRobot 的一体化接口实现。 将实时控制服务、通用 \texttt{Robot} 抽象与多种遥操作入口统一在同一数据录制语义下，降低与 $\pi_{0.5}$ / OpenPI 训练栈的对接成本。
+  \item 参数可文件化、可自动解算的主从示教链路。 相较仅给出硬件连接说明的实现，本文将缩放、偏置与夹爪量程纳入可版本化配置，并提供交互式标定脚本以抑制装配与零点误差带来的数据污染。
+  \item 符合社区规范的小规模桌面抓取数据集实例。 以 \path{pick_apple_4_18/} 为例，展示任务语义、双相机互补视角与帧级特征如何嵌入 LeRobot \texttt{v2.1}，支撑小规模专用微调。
+  \item $\pi_{0.5}$ 向静平台 Franka 桌面任务的迁移与部署剖析。 完成观测--动作空间重定义与训练配置适配，并通过同一权重的不同在线闭环策略量化部署因素对接触任务成败的影响，为 VLA 实装提供可复用的经验教训。
 \end{enumerate}
 
 综上，本文在学科意义上呼应了 VLA 由“模型论文”走向“平台可交付”的趋势；在培养路径上，体现了实验室在先进臂式系统与 VLA 流程方面从 0 到 1 的能力积淀过程中，青年研究者的分工协作与工程化攻关价值。

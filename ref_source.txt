@@ -1,0 +1,146 @@
+以下我為您按照時間軸（2024年以前 vs 2024年以後）作為主分類，並在其中以內容與應用方向作為次分類，詳細整理的 35 篇經典文獻、新穎研究以及關於 Hugging Face LeRobot 的相關文章與資源。
+
+第一部分：2024 年以前的經典與知名文章（共 10 篇）
+這個時期的研究奠定了 VLM 如何理解物理世界，以及 VLA 模型（將語言、視覺輸入直接映射為機器人動作）的概念基礎。
+
+內容分類一：語言與視覺的早期物理世界對齊 (Grounding)
+1. CLIPort: What and Where Pathways for Robotic Manipulation (2021)
+
+內容： 將 CLIP 模型的語意理解能力與 Transporter Networks 的空間操作能力結合。這是早期讓機械臂能透過自然語言指令（如「把紅色的方塊放到藍色碗裡」）進行精準抓取與放置的經典之作。
+
+2. SayCan: Do As I Can, Not As I Say (2022, Google)
+
+內容： 結合了大型語言模型（LLM）的常識推理與機器人的價值函數（Affordance）。LLM 負責生成步驟（Say），而機器人評估在當前環境下哪些動作是可行的（Can），成功將高階指令轉化為機械臂的底層執行步驟。
+
+3. VIMA: General Robot Manipulation with Multimodal Prompts (2022/2023)
+
+內容： 提出了一種支援「多模態提示詞」（包含文字與圖片交錯）的機器人 Transformer 架構。使用者可以給機器人看一張圖片並說「把這個（圖）放到那個（圖）上」，極大地提升了任務的泛化能力。
+
+內容分類二：具身基礎模型 (Embodied Foundation Models) 的雛形
+4. Gato: A Generalist Agent (2022, DeepMind)
+
+內容： 早期證明「單一神經網路可以做所有事」的經典。Gato 使用相同的 Transformer 架構與權重，既能玩 Atari 遊戲，能生成文字，也能控制真實世界的機械臂堆疊積木。
+
+5. PaLM-E: An Embodied Multimodal Language Model (2023, Google)
+
+內容： 將具身感測器數據（如攝影機影像、機器人狀態）直接注入到 5620 億參數的 PaLM 語言模型中。PaLM-E 能夠理解複雜的物理場景並為機械臂制定長期的操作計畫。
+
+6. RoboCat: A Self-Improving Foundation Agent for Robotic Manipulation (2023, DeepMind)
+
+內容： 一個能「自我改進」的 VLM 機器人。RoboCat 可以在不同形狀的機械臂（如單臂、雙臂）之間遷移知識，並透過自己生成的數據來不斷微調自己。
+
+內容分類三：VLA 架構的確立與動作輸出 (Action Transformers)
+7. RT-1: Robotics Transformer for Real-World Control at Scale (2022, Google)
+
+內容： 證明了 Transformer 架構可以直接用於機器人的底層控制。透過收集長達 17 個月、13 萬條機械臂操作數據，RT-1 展現了在真實廚房環境中極高的任務成功率與魯棒性。
+
+8. PerAct: Perceiver-Actor (2022)
+
+內容： 將 Voxel（體素）表示法與 Transformer 結合，讓機器人可以從 RGB-D 影像中學習 6-DoF（六自由度）的機械臂空間操作，解決了許多 2D 視覺無法處理的 3D 空間遮擋問題。
+
+9. RT-2: Vision-Language-Action Models (2023, Google)
+
+內容： VLA 概念的正式確立者。 RT-2 將網路上的海量圖文數據與機器人軌跡數據混合訓練，將「機器人動作（Action）」表示為文字 Token，讓模型像輸出文字一樣輸出機械臂的關節角度，展現了驚人的湧現能力（Emergent Capabilities）。
+
+10. Open X-Embodiment: Robotic Learning Datasets and RT-X Models (2023, 多機構聯合)
+
+內容： 機器人領域的 ImageNet 時刻。匯集了全球多個實驗室的機器人數據，並訓練了 RT-X 模型，證明了使用多種不同機械臂數據訓練出的單一 VLM/VLA 模型，比單一硬體訓練的模型性能更好。
+
+第二部分：2024 年以後的新穎與影響力文章（共 20 篇）
+2024 年是 VLA 模型開源化、3D 空間化、以及雙臂/移動操作普及化的一年。
+
+內容分類一：開源通用 VLA 模型與框架
+11. OpenVLA: An Open-Source Vision-Language-Action Model (2024)
+
+內容： 基於 Llama 2 與 Prismatic VLMs 構建的 7B 參數開源 VLA 模型。打破了 Google 對 VLA 的壟斷，只需一張消費級 GPU 即可微調（LoRA），是目前開源社群控制機械臂的首選模型之一。
+
+12. Octo: An Open-Source Generalist Robot Policy (2024)
+
+內容： 基於 Transformer 的開源通用機器人策略模型。Octo 的特色在於其極高的靈活性，支援不同的攝影機輸入數量、不同的機械臂本體，以及多樣的語言提示。
+
+13. RoboFlamingo-Plus: Fusion of Depth and RGB Perception with Vision-Language Models for Enhanced Robotic Manipulation (2025)
+
+內容： 基於開源的 OpenFlamingo 架構，專注於解決 VLA 模型在長序列操作任務中的遺忘與延遲問題，為機械臂控制提供了一個高效的開源替代方案。
+
+
+內容分類二：增強空間與 3D 推理能力
+15. SpatialVLM: Endowing Vision-Language Models with Spatial Reasoning (2024)
+
+內容： 解決了傳統 VLM 缺乏絕對空間距離感的問題。透過訓練 VLM 預測像素級別的 3D 座標與相對距離，讓機械臂在執行「把物體往左移 5 公分」這類精確指令時成功率大幅提升。
+
+16. 3D-VLA: A 3D Vision-Language-Action Generative World Model (2024)
+
+內容： 將 VLA 從 2D 升級到 3D。不僅能輸出機械臂動作，還能「生成」執行動作後的 3D 點雲世界狀態（World Model），讓機器人具備想像未來狀態的能力。
+
+17. OK-Robot: What Really Matters in Integrating Open-Knowledge Models for Robotics (2024)
+
+內容： 提出一個無需訓練的框架，結合了 VLM (如 CLIP/Lang-SAM) 與開放詞彙 3D 導航模型，讓現成的機械臂能直接在未見過的家庭環境中撿拾特定物品。
+
+內容分類三：靈巧操作、雙臂與移動機器人
+19. Mobile ALOHA: Learning Bimanual Mobile Manipulation with Low-Cost Whole-Body Teleoperation (2024, Stanford)
+
+內容： 2024 初的爆紅之作。展示了如何用低成本硬體加上深度學習（結合視覺與動作序列），讓雙臂機器人學會炒菜、洗碗等極度複雜的全身協調任務。
+
+20. ALOHA Unleashed (2024, Google DeepMind)
+
+內容： Mobile ALOHA 的進階版，展示了 VLA 模型在極度靈巧的任務（如綁鞋帶、掛衣服、修理機器人）上的潛力，推動了端到端（End-to-End）控制的極限。
+
+21. Pi0 (Physical Intelligence 0) (2024, Physical Intelligence)
+
+內容： 被譽為機器人領域的 GPT 時刻。Pi0 是一個真正的通用物理基礎模型，能控制各種不同的機器人（從四足機器狗到折衣服的雙臂機械臂），強調跨實體的通用智能。
+
+22. Any-Point Trajectory Modeling for Policy Learning (APT) (2024)
+
+內容： 捨棄了傳統的邊界框或關鍵點，將物體的視覺表示轉化為「任意點的軌跡」，讓機械臂在處理流體、布料等柔性物體（Deformable Objects）時更加得心應手。
+
+內容分類四：大型模擬環境、資料生成與新訓練架構
+23. RoboCasa: Large-Scale Simulation of Everyday Tasks for Generalist Robots (2024)
+
+內容： 為了訓練更好的 VLM/VLA，RoboCasa 提供了數千個高擬真度的 3D 互動環境（如廚房場景），利用生成式 AI 自動構建場景與任務，解決機器人數據匱乏的問題。
+
+24. ManiSkill3: GPU Parallelized Robotics Simulation (2024)
+
+內容： 2024 年具備統治力的模擬器。透過 GPU 高度平行化，能在單張顯示卡上每秒模擬數百萬步的機械臂互動，極大加速了 VLA 與強化學習的訓練速度。
+
+25. AutoRT: Embodied Foundation Models for Large Scale Orchestration (2024, Google)
+
+內容： 使用 VLM/LLM 作為「大腦」來同時指揮數十台機器人在真實辦公大樓中自主探索、收集數據，並具備自我評估安全性的「護欄」機制。
+
+26. SARA-RT: Scaling up Robotics Transformers with Self-Adaptive Routing (2024)
+
+內容： 解決 VLA 模型在機器人硬體上運算太慢的問題。透過動態稀疏化（只關注重要的視覺與語言 Token），讓機械臂的推理延遲大幅降低，動作更流暢。
+
+27. RT-H: Action Hierarchies Using Language (2024)
+
+內容： 將複雜的任務拆解為「語言層級的動作」。例如不只是輸出關節角度，而是讓模型先輸出「移到杯子上方」的語言意圖，再轉化為動作，增強了 VLA 模型的糾錯能力。
+
+28. Embodied-RAG: Retrieval-Augmented Generation for Robotics (2024)
+
+內容： 將 RAG（檢索增強生成）引入 VLM 機械臂控制中。當機器人遇到未知的物體或操作規範時，可以先「查閱」操作手冊或過往經驗，再決定機械臂的動作軌跡。
+
+29. GR-2: A Generative Video-Language-Action Model with Web-Scale Knowledge for Robot Manipulation (2024)
+
+內容： 探討如何將訓練於海量網路影片（如 YouTube）的影片-語言模型，直接零樣本（Zero-shot）或少樣本遷移到真實機械臂的操控上。
+
+第三部分：Hugging Face "LeRobot" 相關資源與文章（共 5 篇）
+LeRobot 於 2024 年推出，旨在成為「機器人領域的 Transformers 函式庫」，讓任何人都能輕鬆下載模型、數據庫並部署到真實機械臂上。
+
+31. 官方發佈文章："Introducing LeRobot: The open-source AI platform for robotics" (Hugging Face Blog, 2024)
+
+內容： 介紹 LeRobot 的願景，說明其如何統一不同的開源機器人數據集格式，並提供無縫對接 PyTorch 的 API，降低機器人機器學習的門檻。
+
+32. 開源硬體整合指南："Building an Open-Source Robot Arm with SO-100 and LeRobot" (Community/GitHub Docs, 2024)
+
+內容： 詳細記錄如何使用成本極低（甚至全 3D 列印）的 SO-100 或 Koch v1.1 機械臂，配合 LeRobot 框架，在幾小時內完成遙操作數據收集與模仿學習（Imitation Learning）的端到端訓練。
+
+33. 核心算法實踐："End-to-End Imitation Learning via Action Chunking with Transformers (ACT) in LeRobot"
+
+內容： 詳細探討 LeRobot 內部對 ALOHA 核心算法 ACT 的實作。文章解釋了如何透過 LeRobot 訓練一個能預測未來一系列連續動作（Action Chunking）的模型，以解決機械臂抖動與誤差累積的問題。
+
+34. 模擬器無縫接軌："SimulerEnv & LeRobot: Bridging Simulation and Reality"
+
+內容： 介紹 LeRobot 如何內建與多種模擬環境（如 PushT 物理推動任務）的對接。讓開發者在沒有真實機械臂的情況下，也能在電腦上訓練、可視化並評估 VLA/策略模型的表現。
+
+35. 社群數據標準化："AI for Robotics: Standardizing Datasets with LeRobot"
+
+內容： 討論 LeRobot 的核心貢獻之一——數據格式的統一。文章探討了如何透過 LeRobot 將雜亂無章的 ROS (Robot Operating System) bag 檔案轉化為 Hugging Face Hub 上易於加載的張量數據，推動了機器人數據開源的進程。

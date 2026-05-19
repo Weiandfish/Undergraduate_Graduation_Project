@@ -11,7 +11,7 @@
 
 % 开启盲审格式 blindPeerReview=true (如：[type=bachelor,blindPeerReview=true])
 
-\documentclass[type=bachelor]{bithesis}
+\documentclass[type=bachelor,blindPeerReview=true]{bithesis}
 
 % 此处仅列出常用的配置。全部配置用法请见「bithesis.pdf」手册。
 \BITSetup{
@@ -70,11 +70,14 @@
   backend=biber,
   style=gb7714-2015,
   gbalign=gb7714-2015,
-  gbnamefmt=lowercase,
+  % 西文文献姓名「姓在前、名缩写」等国标常见排版（参见 GB/T 7714—2015 示例：
+  % Hajela P, … Title[J]. Journal, Year, Vol(Issue): Pages）
+  gbnamefmt=familyahead,
   gbpub=false,
   doi=false,
   url=false,
-  eprint=false,
+  % 预印本条目保留 arXiv 编号等析出信息，避免题名[J]后无任何馆藏或定位信息
+  eprint=true,
   isbn=false,
 ]{biblatex}
 

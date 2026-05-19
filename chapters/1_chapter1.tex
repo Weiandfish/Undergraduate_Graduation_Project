@@ -6,8 +6,8 @@
 \label{chap:introduction}
 
 面向非结构化环境的机械臂操作是机器人学与人工智能交叉研究的前沿方向。近年来，视觉--语言--动作（Vision-Language-Action, VLA）模型将多模态大模型的语义理解与机器人动作生成相统一，
-为“自然语言条件下的灵巧操作”提供了新的技术路径\parencite{black2024pi0,black2025pi05}。
-与此同时，工业界与学术界相继开源了面向模仿学习与数据标准化的软件栈（如 Hugging Face LeRobot\parencite{lerobotRepo}），
+为“自然语言条件下的灵巧操作”提供了新的技术路径\cite{black2024pi0,black2025pi05}。
+与此同时，工业界与学术界相继开源了面向模仿学习与数据标准化的软件栈（如 Hugging Face LeRobot），
 降低了数据采集与策略训练的工程门槛。然而，从公开算法到具体实验室的异构硬件（高精度力控臂、多路相机、实时控制链路），
 中间仍普遍存在接口割裂、时序对齐困难、示教可重复性差等问题；尤其是面向 $\pi_{0.5}$ 等新一代分层 VLA 的部署，
 往往要求稳定的底层执行、与通用数据集规范对齐的观测--动作字段、以及可诊断的在线闭环，这些能力难以仅靠“更换若干超参数”获得。
@@ -23,46 +23,49 @@
 
 （1）视觉—语言与机器人早期对齐。
 在 VLA 之前就已有大量工作探索如何将语言与可操作视觉表征结合。
-\textsc{Cliport}\parencite{shridhar2021cliport} 将 CLIP 式语义与 ``where'' 空间变换网络结合，实现语言条件下的桌面抓取；
-\textsc{SayCan}\parencite{ahn2022saycan} 用语言模型产生子任务，再用价值函数筛选当前环境下可执行的一步，缓解 ``会说不会做''；
-\textsc{VIMA}\parencite{jiang2022vima} 则支持图文交错的多模态提示，为 ``指图操作'' 类交互奠定基础。
+\textsc{Cliport}\cite{shridhar2021cliport} 将 CLIP 式语义与 ``where'' 空间变换网络结合，实现语言条件下的桌面抓取；
+\textsc{SayCan}\cite{ahn2022saycan} 用语言模型产生子任务，再用价值函数筛选当前环境下可执行的一步，缓解 ``会说不会做''；
+\textsc{VIMA}\cite{jiang2022vima} 则支持图文交错的多模态提示，为 ``指图操作'' 类交互奠定基础。
 这一阶段的工作说明：仅有语言或仅有像素都不足以应对长程操作，跨模态对齐与可执行性约束必须协同设计。
 
 （2）具身基础模型与通才策略。
-\textsc{PaLM-E}\parencite{driess2023palme} 将机器人感知流注入超大语言模型，实现长程规划与场景理解；
-\textsc{RoboCat}\parencite{bousmalis2023robocat} 强调自改进与跨机械臂形态迁移；
-体素化动作建模方面，\textsc{Perceiver-Actor}\parencite{shridhar2022perceiveractor} 在三维占用栅格上输出动作，有利于遮挡与多物体堆叠。
+\textsc{PaLM-E}\cite{driess2023palme} 将机器人感知流注入超大语言模型，实现长程规划与场景理解；
+\textsc{RoboCat}\cite{bousmalis2023robocat} 强调自改进与跨机械臂形态迁移；
+体素化动作建模方面，\textsc{Perceiver-Actor}\cite{shridhar2022perceiveractor} 在三维占用栅格上输出动作，有利于遮挡与多物体堆叠。
 当前社区主流进一步转向以真机机器人数据与统一数据 schema 为约束的高容量策略网络，而非仅在仿真或单一形态上验证的通才演示。
+国内关于多模态大模型具身智能体的综述也将具身感知、任务规划与低层动作控制作为关键组成，说明 VLA 正在从单点模型演进为覆盖感知、规划和执行的系统方法\cite{zhao2025multimodalEmbodiedAgentsReview}。
 
 （3）从 \textsc{RT-1}/\textsc{RT-2} 到开源 VLA 与跨本体数据。
-\textsc{RT-1}\parencite{brohan2022rt1} 证明在超大规模真机数据上训练的高容量模型可获得鲁棒策略；
-\textsc{RT-2}\parencite{brohan2023rt2} 将网络图文先验与离散动作 token 结合，使 ``网络知识'' 可迁移到机器人控制；
-\textsc{Open~X-Embodiment}\parencite{oneill2024openxembodiment} 联合多实验室、多本体数据训练 \textsc{RT-X}，标志着跨硬件统计迁移成为社区共识。
-开源侧，\textsc{OpenVLA}\parencite{kim2024openvla} 与 \textsc{Octo}\parencite{ghosh2024octo} 提供了可本地微调、可替换相机与语言条件的通用策略；
-\textsc{RoboFlamingo-Plus}\parencite{wang2025roboflamingoplus} 则进一步融合深度与 \textsc{RGB}，缓解纯二维投影造成的深度歧义。
+\textsc{RT-1}\cite{brohan2022rt1} 证明在超大规模真机数据上训练的高容量模型可获得鲁棒策略；
+\textsc{RT-2}\cite{brohan2023rt2} 将网络图文先验与离散动作 token 结合，使 ``网络知识'' 可迁移到机器人控制；
+\textsc{Open~X-Embodiment}\cite{oneill2024openxembodiment} 联合多实验室、多本体数据训练 \textsc{RT-X}，标志着跨硬件统计迁移成为社区共识。
+开源侧，\textsc{OpenVLA}\cite{kim2024openvla} 与 \textsc{Octo}\cite{ghosh2024octo} 提供了可本地微调、可替换相机与语言条件的通用策略；
+\textsc{RoboFlamingo-Plus}\cite{wang2025roboflamingoplus} 则进一步融合深度与 \textsc{RGB}，缓解纯二维投影造成的深度歧义。
 
 （4）空间推理、三维世界模型与开放词汇系统。
-\textsc{SpatialVLM}\parencite{chen2024spatialvlm} 赋予 \textsc{VLM} 度量级空间判断能力；
-\textsc{3D-VLA}\parencite{zhen20243dvla} 将动作生成与三维世界建模耦合，面向长程后果预测；
-\textsc{OK-Robot}\parencite{liu2024okrobot} 系统分析了 ``堆叠开放知识模块'' 时真正决定成败的工程要素，
+\textsc{SpatialVLM}\cite{chen2024spatialvlm} 赋予 \textsc{VLM} 度量级空间判断能力；
+\textsc{3D-VLA}\cite{zhen20243dvla} 将动作生成与三维世界建模耦合，面向长程后果预测；
+\textsc{Surfer}\cite{ren2025surfer} 则以世界模型显式预测场景状态转移，为语言条件操作中的动作选择与物理后果建模提供了另一类思路；
+\textsc{OK-Robot}\cite{liu2024okrobot} 系统分析了 ``堆叠开放知识模块'' 时真正决定成败的工程要素，
 对无再训练或少再训练的快速部署具有参考价值。
 
 （5）遥操作、双臂移动与轨迹表示。
-\textsc{Mobile~ALOHA}\parencite{fu2024mobilealoha} 与 \textsc{ALOHA~Unleashed}\parencite{zhao2024alohaunleashed} 推动低成本的全身示教与复杂双手技能；
-\textsc{APT}\parencite{wen2023apt} 用任意点轨迹统一可形变物体与刚体操作，为动作表示提供新视角。
-这些数据范式与 \textsc{LeRobot}\parencite{lerobotRepo} 的统一张量规范相衔接，使社区能够快速沉淀可训练数据集。
+\textsc{Mobile~ALOHA}\cite{fu2024mobilealoha} 与 \textsc{ALOHA~Unleashed}\cite{zhao2024alohaunleashed} 推动低成本的全身示教与复杂双手技能；
+\textsc{APT}\cite{wen2023apt} 用任意点轨迹统一可形变物体与刚体操作，为动作表示提供新视角。
+这些数据范式与 \textsc{LeRobot} 的统一张量规范相衔接，使社区能够快速沉淀可训练数据集。
 
 （6）仿真、数据编排与生成式 \textsc{VLA}。
-\textsc{RoboCasa}\parencite{nasiriany2024robocasa}、\textsc{ManiSkill3}\parencite{taole2024maniskill3} 等强调大规模仿真与 \textsc{GPU} 并行，用于弥补真实示教成本；
-\textsc{AutoRT}\parencite{ahn2024autort} 展示如何用具身大模型编排多台机台采集；
-\textsc{GR-2}\parencite{cheang2024gr2} 探索视频—语言先验向机器人动作的生成式迁移。
-在学习机制层面，$\pi^*_{0.6}$\parencite{physicalintelligence2025pi06} 引入经验学习与修正闭环，
-\textsc{FAST}\parencite{pertsch2025fast} 与知识绝缘 \parencite{driess2025knowledge} 则从动作分词与训练效率角度推进 VLA。
+\textsc{RoboCasa}\cite{nasiriany2024robocasa}、\textsc{ManiSkill3}\cite{taole2024maniskill3} 等强调大规模仿真与 \textsc{GPU} 并行，用于弥补真实示教成本；
+\textsc{AutoRT}\cite{ahn2024autort} 展示如何用具身大模型编排多台机台采集；
+\textsc{GR-2}\cite{cheang2024gr2} 探索视频—语言先验向机器人动作的生成式迁移。
+扩散模型在具身模仿学习中的应用也受到系统总结，其优势在于能够表达多峰动作分布，并通过迭代去噪机制生成平滑、稳定的操作轨迹\cite{li2026diffusionEmbodiedImitationLearningReview}。
+在学习机制层面，$\pi^*_{0.6}$\cite{physicalintelligence2025pi06} 引入经验学习与修正闭环，
+\textsc{FAST}\cite{pertsch2025fast} 与知识绝缘\cite{driess2025knowledge} 则从动作分词与训练效率角度推进 VLA。
 
 （7）$\pi_0$/$\pi_{0.5}$ 与连续动作建模。
-$\pi_0$\parencite{black2024pi0}、$\pi_{0.5}$\parencite{black2025pi05} 将预训练视觉—语言主干
-（如 \textsc{PaliGemma}\allowbreak\parencite{beyer2024paligemma}）与动作专家结合，
-并以 flow matching\parencite{lipman2022flowmatching} 建模连续动作分布，
+$\pi_0$\cite{black2024pi0}、$\pi_{0.5}$\cite{black2025pi05} 将预训练视觉—语言主干
+（如 \textsc{PaliGemma}\allowbreak\cite{beyer2024paligemma}）与动作专家结合，
+并以 flow matching\cite{lipman2022flowmatching} 建模连续动作分布，
 代表当前面向真机高频控制的一条主流路线。
 本文即以 $\pi_{0.5}$ 为主线，在其开放权重与训练栈上进行任务迁移。
 
@@ -70,25 +73,26 @@ $\pi_0$\parencite{black2024pi0}、$\pi_{0.5}$\parencite{black2025pi05} 将预训
 桌面抓取在几何约束、摩擦与滚动等非结构扰动下对接触瞬间的闭环修正极为敏感。
 既有研究既关注抓取规划与学习型策略本身，也日益重视推理频率、动作块执行方式与异步/同步控制对成功率的影响；
 但在公开讨论中，同一训练权重在不同部署脚本下的巨大性能落差仍相对缺乏系统记录，尤其对 VLA 动作块输出而言，部署策略往往与模型结构同等关键。
+此外，抓取后的物理属性变化与载荷适应也会影响闭环控制稳定性，例如 \textsc{FlyAware}\cite{ye2026flyaware} 通过视觉估计与抓后适应处理空中操作中的惯性变化，提示接触后的在线校正同样是机器人操作系统的重要环节。
 
 \section{现有研究的不足与研究空白}
 
 综合上述脉络，现有工作尚存在以下与本文课题密切相关的研究空白：
 
 \begin{enumerate}
-  \item 平台落地鸿沟。 公开 VLA 与 \textsc{LeRobot}\parencite{lerobotRepo} 生态多以若干 ``标准型'' 机器人为第一公民，
+  \item 平台落地鸿沟。 公开 VLA 与 \textsc{LeRobot} 生态多以若干 ``标准型'' 机器人为第一公民，
         Franka 等平台若缺少与 \texttt{Robot}/\texttt{Teleoperator} 约定一致的实现，则难以直接复用社区训练脚本，
-        更无法保证示教数据与策略消费端的字段一一对应；而跨本体成果\parencite{oneill2024openxembodiment,kim2024openvla,ghosh2024octo}虽强，
+        更无法保证示教数据与策略消费端的字段一一对应；而跨本体成果\cite{oneill2024openxembodiment,kim2024openvla,ghosh2024octo}虽强，
         仍不能自动消解单平台线缆级工程问题。
-  \item 示教质量与可复现性。 低成本遥操作\parencite{fu2024mobilealoha,zhao2024alohaunleashed}与灵活轨迹表示\parencite{wen2023apt}为数据提供了方法学支撑，
+  \item 示教质量与可复现性。 低成本遥操作\cite{fu2024mobilealoha,zhao2024alohaunleashed}与灵活轨迹表示\cite{wen2023apt}为数据提供了方法学支撑，
         但安装误差、轴向反向与夹爪量程不一致会导致关节空间系统偏差；若缺少可文件化、可自动解算的标定流程，
-        则小规模高质量数据难以稳定获得，仿真合成数据\parencite{nasiriany2024robocasa,taole2024maniskill3}亦无法替代本机一致性。
-  \item 小规模专用数据下的迁移验证。 $\pi_{0.5}$\parencite{black2025pi05} 原论文面向移动双臂与高覆盖多相机配置，
+        则小规模高质量数据难以稳定获得，仿真合成数据\cite{nasiriany2024robocasa,taole2024maniskill3}亦无法替代本机一致性。
+  \item 小规模专用数据下的迁移验证。 $\pi_{0.5}$\cite{black2025pi05} 原论文面向移动双臂与高覆盖多相机配置，
         而静态单臂桌面任务的观测—动作维度更紧凑；如何在十余小时以下、数十条轨迹量级完成可用的任务特化微调，
-        并与实机接口严格对齐，仍需面向具体平台给出可检验的实现路径——这与开放世界报告\parencite{black2025pi05,physicalintelligence2025pi06}形成互补问题。
-  \item 部署闭环与性能解释。 动作块预测\parencite{pertsch2025fast}在理论上利于平滑与快速推理，但若在线执行仍偏长时开环，
+        并与实机接口严格对齐，仍需面向具体平台给出可检验的实现路径——这与开放世界报告\cite{black2025pi05,physicalintelligence2025pi06}形成互补问题。
+  \item 部署闭环与性能解释。 动作块预测\cite{pertsch2025fast}在理论上利于平滑与快速推理，但若在线执行仍偏长时开环，
         接触敏感任务可能出现成功率坍塌；现有文献对 ``同一模型、不同闭环脚本'' 的对比往往不足，
-        且空间/三维推理增强\parencite{chen2024spatialvlm,zhen20243dvla}与开放系统集成经验\parencite{liu2024okrobot}很少落实到Franka+双相机+VLA 权重这一典型教学实验配置上。
+        且空间/三维推理增强\cite{chen2024spatialvlm,zhen20243dvla,ren2025surfer}与开放系统集成经验\cite{liu2024okrobot}很少落实到Franka+双相机+VLA 权重这一典型教学实验配置上。
 \end{enumerate}
 
 由此，本文将问题凝练为：在实验室自建 Franka--LeRobot--OpenPI（$\pi_{0.5}$）全流程的前提下，能否以标准化示教数据与针对性接口适配，在桌面抓取任务上实现可用的 VLA 策略，并厘清部署闭环对实机性能的决定性作用？

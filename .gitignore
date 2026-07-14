@@ -323,3 +323,13 @@ TSWLatexianTemp*
 *.glstex
 
 # End of https://www.toptal.com/developers/gitignore/api/latex
+
+# 大型二进制文件（编译产物/附件，不纳入版本库）
+/background-pdf.pdf
+/misc/1_originality.docx
+/misc/papertranslate/
+/北京理工大学学术答辩PPT模板V3.0.pptx
+/唐元昊1120221074.pdf
+/唐元昊的毕业论文.pdf
+/毕业答辩_唐元昊.pptx
+/毕业答辩_唐元昊_v2.pptx

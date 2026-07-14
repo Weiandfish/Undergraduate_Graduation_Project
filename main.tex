@@ -11,7 +11,7 @@
 
 % 开启盲审格式 blindPeerReview=true (如：[type=bachelor,blindPeerReview=true])
 
-\documentclass[type=bachelor,blindPeerReview=true]{bithesis}
+\documentclass[type=bachelor]{bithesis}
 
 % 此处仅列出常用的配置。全部配置用法请见「bithesis.pdf」手册。
 \BITSetup{
@@ -35,20 +35,20 @@
     author = 唐元昊,
     studentId = 1120221074,
     supervisor = 方浩,
-    keywords = {视觉—语言—动作模型；Franka机械臂；LeRobot；模仿学习；桌面抓取；$\pi_{0.5}$},
-    keywordsEn = {Vision-language-action model; Franka manipulator; LeRobot; imitation learning; desktop grasping; $\pi_{0.5}$},
+    keywords = {视觉—语言—动作模型；弗兰卡机械臂；模仿学习；桌面抓取；$\pi_{0.5}$},
+    keywordsEn = {Vision-language-action model; Franka manipulator; imitation learning; desktop grasping; $\pi_{0.5}$},
     % 如果你的毕设为校外毕设，请将下面这一行语句解除注释（删除第一个百分号字符）并填写你的校外毕设导师名字
     % externalSupervisor = 左偏树,
   },
   style = {
     % 开启 Windows 平台下的中易宋体伪粗体。
-    % windowsSimSunFakeBold = true,
+    windowsSimSunFakeBold = true,
     %
     % 开启该选项后，将用 Times New Roman 的开源字体 TeX Gyre Termes 作为正文字体。
     % 这个选项适用于以下情况：
     % 1. 不想在系统中安装 Times New Roman。
     % 2. 在 Linux/macOS 下遇到 `\textsc` 无法正常显示的问题。
-    % betterTimesNewRoman = true,
+    betterTimesNewRoman = true,
   },
   misc = {
     % 微调表格行间距
@@ -62,6 +62,13 @@
 \usepackage{listings}
 % 长路径/标识符在正文中可按斜杠等位置断行，避免版面重叠
 \usepackage{xurl}
+% 重定义 \path 使用正文字体，避免等宽字体突兀
+\DeclareUrlCommand{\path}{\urlstyle{same}}
+% 紧凑列表间距，消除 enumerate/itemize 多余空行
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=2\ccwd}
+% 页面背景
+\usepackage{eso-pic}
 
 
 % 大部分关于参考文献样式的修改，都可以通过此处的选项进行配置。
@@ -87,8 +94,18 @@
 % 若要按计算机学院要求，添加“北京理工大学”水印，请参考
 % https://bithesis.bitnp.net/faq/watermark.html
 
+\newcommand\BackgroundPicture{%
+  \put(0,0){%
+    \parbox[b][\paperheight]{\paperwidth}{%
+      \vfill
+      \centering
+      \includegraphics[width=\paperwidth]{background-pdf.pdf}%
+      \vfill
+    }}}
+
 % 文档开始
 \begin{document}
+\AddToShipoutPicture{\BackgroundPicture}
 % 缓解中英文混排、括号引用等处少量 Overfull \hbox（过栏）
 \setlength{\emergencystretch}{3em}
 
@@ -112,6 +129,9 @@
 
 % 正文开始
 \mainmatter
+
+% 强制固定行距 22 磅（Word 固定值语义），移除弹性伸缩
+\setlength{\baselineskip}{22bp}
 
 % 在这里引用各章 TeX 文件，按需添加
 \input{chapters/1_chapter1.tex}

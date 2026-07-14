@@ -27,35 +27,35 @@
   \end{tabular}
 \end{table}
 
-文中若干符号与第二、四章公式一致：主从关节映射中 $\alpha_i$、$\beta_i$ 分别为第 $i$ 轴缩放与偏置；夹爪归一化量记为 $g_{[0,1]}$；$\pi_{0.5}$ 的策略分解记法见第四章式\eqref{eq:pi05-il} 与式\eqref{eq:pi05-factor}。数据集 \texttt{pick\_apple\_4\_18} 的帧级特征键名见第三章表~\ref{tab:pick-apple-features}。
+文中若干符号与第二、三章公式一致：主从关节映射中 $\alpha_i$、$\beta_i$ 分别为第 $i$ 轴缩放与偏置；夹爪归一化量记为 $g_{[0,1]}$；$\pi_{0.5}$ 的策略分解记法见第三章式\eqref{eq:pi05-il} 与式\eqref{eq:pi05-factor}。自采数据集的帧级特征键名见第二章表~\ref{tab:pick-apple-features}。
 
 \section{实验与工程环境概要}
 
-机器人与控制： Franka Emika Panda（或同系列）七轴协作臂，末端配置二指电驱夹爪；实时侧运行基于官方 \texttt{libfranka} 的 \path{franka_server} 服务，轨迹平滑采用 Ruckig 库；上位机与实时机通过局域网套接字交互。
+机器人与控制：弗兰卡七轴协作臂，末端配置二指电驱夹爪；实时侧运行基于官方 libfranka 的实时控制服务，轨迹平滑采用 Ruckig 库；上位机与实时机通过局域网套接字交互。
 
-感知与遥操作： 第三人称与腕部 RGB 相机（规格以数据集 \path{meta/info.json} 中声明为准，如 $1280\times720$、标称 $10~\mathrm{Hz}$）；三维鼠标用于笛卡尔增量示教；同构主从由主臂读数经标定后映射至从臂关节目标。配对标定脚本为 \path{scripts/franka_gripper/calibrate_subarm_pairing.py}（见第二章）。
+感知与遥操作：第三人称与腕部 RGB 相机（$1280\times720$、标称 $10~\mathrm{Hz}$）；三维鼠标用于笛卡尔增量示教；同构主从由主臂读数经标定后映射至从臂关节目标。配对标定流程详见第二章。
 
-软件栈： 操作系统以 Windows/Linux 实验室环境为准；Python 侧基于 Hugging Face LeRobot 约定版本扩展 \texttt{Robot}/\texttt{Teleoperator}；策略训练与远端推理基于 OpenPI（$\pi_{0.5}$）及工程内 \texttt{config.py} 中 \texttt{pi05\_franka\_pick\_apple} 等配置；可视化抽检可使用 Rerun。具体依赖版本以毕业设计代码仓库锁定的环境（如 \texttt{requirements}、容器或文档说明）为准，附录不替代版本管理文件。
+软件栈：操作系统以 Ubuntu 22.04 LTS 为主；Python 侧基于 Hugging Face LeRobot 约定版本扩展 Robot 与 Teleoperator 接口；策略训练与远端推理基于 OpenPI（$\pi_{0.5}$）；可视化抽检可使用 Rerun。具体依赖版本以毕业设计代码仓库锁定的环境为准，附录不替代版本管理文件。
 
 \section{LeRobot 配置类型速查}
 
-表~\ref{tab:appendix-lerobot-types}汇总第二章所述主要 \texttt{type} 字段，便于部署时对照；详述与类名仍以第二章表~\ref{tab:module-map} 及正文为准。
+表~\ref{tab:appendix-lerobot-types}汇总第二章所述主要 type 字段，便于部署时对照；详述与类名仍以第二章表~\ref{tab:module-map} 及正文为准。
 
 \begin{table}[htbp]
   \centering
   \small
-  \caption{本文扩展的 LeRobot 配置 \texttt{type} 速查}
+  \caption{本文扩展的 LeRobot 配置 type 速查}
   \label{tab:appendix-lerobot-types}
   \begin{tabular}{>{\raggedright\arraybackslash}p{6.6cm}>{\raggedright\arraybackslash}p{7.4cm}}
     \toprule
-    \texttt{type} & 简要说明 \\
+    type & 简要说明 \\
     \midrule
-    \texttt{franka\_fer} & Franka 从臂，关节目标动作，无独立夹爪通道 \\
-    \texttt{franka\_fer\_gripper} & 臂 + 夹爪八维观测与动作 \\
-    \texttt{franka\_fer\_spacemouse} & 三维鼠标遥操作（臂） \\
-    \texttt{franka\_fer\_gripper\_spacemouse} & 三维鼠标遥操作（臂 + 夹爪） \\
-    \texttt{franka\_fer\_subarm} & 同构主从关节映射（臂） \\
-    \texttt{franka\_fer\_gripper\_subarm} & 同构主从关节映射（臂 + 夹爪） \\
+    franka\_fer & 弗兰卡 从臂，关节目标动作，无独立夹爪通道 \\
+    franka\_fer\_gripper & 臂 + 夹爪八维观测与动作 \\
+    franka\_fer\_spacemouse & 三维鼠标遥操作（臂） \\
+    franka\_fer\_gripper\_spacemouse & 三维鼠标遥操作（臂 + 夹爪） \\
+    franka\_fer\_subarm & 同构主从关节映射（臂） \\
+    franka\_fer\_gripper\_subarm & 同构主从关节映射（臂 + 夹爪） \\
     \bottomrule
   \end{tabular}
 \end{table}
